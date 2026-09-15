@@ -31,7 +31,10 @@ const PORT = 3000;
 
 // QR Code aur Mobile URL provide karne ke liye API
 app.get('/get-qr', async (req, res) => {
-  const mobileUrl = `http://${LOCAL_IP}:${PORT}/camera.html`;
+  const host = req.get('host');
+  const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+  const mobileUrl = `${protocol}://${host}/camera.html`;
+
   try {
     const qrImage = await QRCode.toDataURL(mobileUrl);
     res.json({ url: mobileUrl, qr: qrImage });
