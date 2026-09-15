@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Surveillance Operations Center</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0b0f19;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 24px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: #2563eb;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .brand-icon svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
+    .brand h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .badge-counter {
+      background: #111827;
+      border: 1px solid #374151;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #22c55e;
+      background: rgba(34, 197, 94, 0.1);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      background: #22c55e;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #22c55e;
+    }
+    .video-viewport {
+      width: 100%;
+      height: 220px;
+      background: #030712;
+      border-radius: 8px;
+      object-fit: cover;
+      display: block;
+      border: 1px solid #1e293b;
+      cursor: pointer;
+    }
+    .action-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .btn {
+      background: #1f2937;
+      border: 1px solid #374151;
+      color: #cbd5e1;
+      padding: 8px 4px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+    .btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .btn:hover {
+      background: #374151;
+      border-color: #4b5563;
+      color: #fff;
+    }
+    .qr-card {
+      background: #111827;
+      border: 2px dashed #374151;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr-card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #f1f5f9;
+    }
+    .qr-card p {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    .qr-frame {
+      background: #ffffff;
+      padding: 8px;
+      border-radius: 8px;
+      display: inline-flex;
+    }
+    .qr-frame img {
+      width: 130px;
+      height: 130px;
+      display: block;
+    }
+    .cam-url {
+      font-family: monospace;
+      font-size: 11px;
+      color: #38bdf8;
+      background: #030712;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #1e293b;
+      margin-top: 12px;
+      max-width: 100%;
+      overflow-wrap: break-word;
+    }
+
+    /* Modal for Full-Screen View */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(3, 7, 18, 0.95);
+      backdrop-filter: blur(10px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 20px;
+    }
+    .modal-header {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .modal-view {
+      width: 100%;
+      max-width: 960px;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      background: #000;
+    }
+    .btn-close {
+      background: #dc2626;
+      border: none;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+      </div>
+      <h1>Surveillance Operations Center</h1>
+    </div>
+    <div class="badge-counter" id="activeCounter">Active Nodes: 0 / 5</div>
+  </header>
+
+  <div class="grid" id="nodeGrid">
+    <div class="qr-card">
+      <h3>Pair New Node</h3>
+      <p>Scan with any mobile device to connect camera</p>
+      <div class="qr-frame">
+        <img id="qrElement" src="" alt="Pairing QR" />
+      </div>
+      <div class="cam-url" id="linkPlaceholder">Generating endpoint...</div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Modal -->
+  <div class="modal-overlay" id="fullscreenModal">
+    <div class="modal-header">
+      <h2 id="modalCamTitle" style="font-size: 16px;">Node Focused View</h2>
+      <button class="btn-close" onclick="closeFullscreen()">Exit</button>
+    </div>
+    <img id="modalPreview" class="modal-view" src="" alt="Full Screen Feed" />
+  </div>
+
+  <script>
+    const socket = io();
+    const nodeGrid = document.getElementById('nodeGrid');
+    const activeCounter = document.getElementById('activeCounter');
+    const modal = document.getElementById('fullscreenModal');
+    const modalPreview = document.getElementById('modalPreview');
+    const modalCamTitle = document.getElementById('modalCamTitle');
+
+    const nodes = new Set();
+    let currentFocusCamId = null;
+
+    fetch('/get-qr')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('qrElement').src = data.qr;
+        document.getElementById('linkPlaceholder').innerText = data.url;
+      });
+
+    socket.on('stream-feed', (data) => {
+      let preview = document.getElementById(`feed-${data.camId}`);
+
+      if (!preview) {
+        nodes.add(data.camId);
+        updateNodeCount();
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.id = `card-${data.camId}`;
+        card.innerHTML = `
+          <div class="card-top">
+            <span class="card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              ${data.camId}
+            </span>
+            <span class="live-indicator"><span class="dot"></span>LIVE</span>
+          </div>
+          <img id="feed-${data.camId}" class="video-viewport" src="" alt="Live Stream" onclick="openFullscreen('${data.camId}')" />
+          <div class="action-bar">
+            <button class="btn" title="Capture Still" onclick="takeSnapshot('${data.camId}')">
+              <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              Snap
+            </button>
+            <button class="btn" title="Enlarge View" onclick="openFullscreen('${data.camId}')">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
+              Focus
+            </button>
+            <button class="btn" title="Toggle Flashlight" onclick="sendSignal('${data.camId}', 'torch')">
+              <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              Flash
+            </button>
+            <button class="btn" title="Switch Sensor" onclick="sendSignal('${data.camId}', 'flip')">
+              <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+              Flip
+            </button>
+          </div>
+        `;
+        nodeGrid.insertBefore(card, nodeGrid.firstChild);
+        preview = document.getElementById(`feed-${data.camId}`);
+      }
+
+      preview.src = data.image;
+
+      if (currentFocusCamId === data.camId) {
+        modalPreview.src = data.image;
+      }
+    });
+
+    socket.on('camera-status', (info) => {
+      if (info.status === 'disconnected') {
+        const target = document.getElementById(`card-${info.id}`);
+        if (target) target.remove();
+        nodes.delete(info.id);
+        updateNodeCount();
+        if (currentFocusCamId === info.id) closeFullscreen();
+      }
+    });
+
+    function sendSignal(camId, action) {
+      socket.emit('control-command', { camId, action });
+    }
+
+    function updateNodeCount() {
+      activeCounter.innerText = `Active Nodes: ${nodes.size} / 5`;
+    }
+
+    // Snapshot Function: Direct download PNG
+    function takeSnapshot(camId) {
+      const feed = document.getElementById(`feed-${camId}`);
+      if (!feed || !feed.src) return;
+
+      const link = document.createElement('a');
+      link.download = `Snapshot_${camId}_${Date.now()}.jpg`;
+      link.href = feed.src;
+      link.click();
+    }
+
+    // Full-Screen Focus Controls
+    function openFullscreen(camId) {
+      currentFocusCamId = camId;
+      modalCamTitle.innerText = `Focused View: ${camId}`;
+      const source = document.getElementById(`feed-${camId}`);
+      if (source) modalPreview.src = source.src;
+      modal.style.display = 'flex';
+    }
+
+    function closeFullscreen() {
+      currentFocusCamId = null;
+      modal.style.display = 'none';
+      modalPreview.src = '';
+    }
+  </script>
+</body>
+</html>
