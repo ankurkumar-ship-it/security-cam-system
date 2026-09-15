@@ -131,8 +131,8 @@
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: facingMode,
-            width: { ideal: 640 },
-            height: { ideal: 480 }
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
           },
           audio: false
         });
@@ -151,16 +151,17 @@
           broadcasting = true;
 
     setInterval(() => {
-        if (!streamPreview.videoWidth) return;
-        // Resolution thoda optimize karein (data size aadha ho jayega)
-        offscreenCanvas.width = 240;
-        offscreenCanvas.height = 180;
-        ctx.drawImage(streamPreview, 0, 0, 240, 180);
-  
-        // Quality 0.5 se ghata kar 0.35 kar dein (ekdam lightweight frame)
-        const encodedFrame = offscreenCanvas.toDataURL('image/jpeg', 0.35);
-        socket.emit('stream-data', { camId: nodeId, image: encodedFrame });
-    }, 100); // 10 FPS par smooth movement milega
+       if (!streamPreview.videoWidth) return;
+
+       // Resolution ko 640x480 karein (Clear picture + smooth balance)
+       offscreenCanvas.width = 640;
+       offscreenCanvas.height = 480;
+       ctx.drawImage(streamPreview, 0, 0, 640, 480);
+
+       // Quality ko 0.35 se badhakar 0.65 karein (Dhundhlapan bilkul khatam ho jayega)
+       const encodedFrame = offscreenCanvas.toDataURL('image/jpeg', 0.65);
+       socket.emit('stream-data', { camId: nodeId, image: encodedFrame });
+    }, 120);
         }
       } catch (err) {
         alert('Camera initialization failed: ' + err.message);
