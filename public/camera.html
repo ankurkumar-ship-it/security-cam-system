@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Camera Node Client</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #030712;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .header h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    .header p {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+    .viewport-box {
+      width: 100%;
+      max-width: 360px;
+      aspect-ratio: 3/4;
+      background: #0f172a;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #1e293b;
+      position: relative;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .badge-status {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .btn-main {
+      width: 100%;
+      max-width: 360px;
+      margin-top: 20px;
+      padding: 14px;
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .btn-main:active {
+      background: #1d4ed8;
+    }
+    .status-msg {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h2>Camera Node Client</h2>
+    <p id="subStatus">Ready to initialize stream</p>
+  </div>
+
+  <div class="viewport-box">
+    <div id="statusBadge" class="badge-status" style="color: #ef4444;">● Offline</div>
+    <video id="streamPreview" autoplay playsinline muted></video>
+  </div>
+
+  <button id="broadcastBtn" class="btn-main">Start Camera</button>
+  <div id="footerNotice" class="status-msg">Allow camera access when prompted.</div>
+
+  <canvas id="offscreenCanvas" style="display:none;"></canvas>
+
+  <script>
+    const socket = io();
+    const streamPreview = document.getElementById('streamPreview');
+    const broadcastBtn = document.getElementById('broadcastBtn');
+    const statusBadge = document.getElementById('statusBadge');
+    const subStatus = document.getElementById('subStatus');
+    const footerNotice = document.getElementById('footerNotice');
+    const offscreenCanvas = document.getElementById('offscreenCanvas');
+    const ctx = offscreenCanvas.getContext('2d');
+
+    let nodeId = localStorage.getItem('assigned_cam_id');
+    if (!nodeId) {
+      nodeId = 'NODE-' + Math.floor(100 + Math.random() * 900);
+      localStorage.setItem('assigned_cam_id', nodeId);
+    }
+
+    let facingMode = 'environment';
+    let currentStream = null;
+    let currentTrack = null;
+    let broadcasting = false;
+    let torchActive = false;
+
+    async function initializeCamera() {
+      if (currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: facingMode,
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
+          audio: false
+        });
+
+        currentStream = stream;
+        streamPreview.srcObject = stream;
+        currentTrack = stream.getVideoTracks()[0];
+
+        if (!broadcasting) {
+          socket.emit('register-camera', nodeId);
+          statusBadge.innerText = `● LIVE (${nodeId})`;
+          statusBadge.style.color = '#22c55e';
+          broadcastBtn.style.display = 'none';
+          subStatus.innerText = `Broadcasting as ${nodeId}`;
+          footerNotice.innerText = 'Keep this browser tab active';
+          broadcasting = true;
+
+    setInterval(() => {
+        if (!streamPreview.videoWidth) return;
+        // Resolution thoda optimize karein (data size aadha ho jayega)
+        offscreenCanvas.width = 240;
+        offscreenCanvas.height = 180;
+        ctx.drawImage(streamPreview, 0, 0, 240, 180);
+  
+        // Quality 0.5 se ghata kar 0.35 kar dein (ekdam lightweight frame)
+        const encodedFrame = offscreenCanvas.toDataURL('image/jpeg', 0.35);
+        socket.emit('stream-data', { camId: nodeId, image: encodedFrame });
+    }, 100); // 10 FPS par smooth movement milega
+        }
+      } catch (err) {
+        alert('Camera initialization failed: ' + err.message);
+      }
+    }
+
+    broadcastBtn.onclick = initializeCamera;
+
+    socket.on('execute-command', async (cmd) => {
+      if (cmd.camId !== nodeId) return;
+
+      if (cmd.action === 'flip') {
+        facingMode = (facingMode === 'environment') ? 'user' : 'environment';
+        await initializeCamera();
+      }
+
+      if (cmd.action === 'torch' && currentTrack) {
+        try {
+          torchActive = !torchActive;
+          await currentTrack.applyConstraints({
+            advanced: [{ torch: torchActive }]
+          });
+        } catch (e) {
+          console.warn('Torch control not supported on this lens.');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
