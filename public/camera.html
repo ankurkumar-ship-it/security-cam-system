@@ -189,6 +189,12 @@
         }
       }
     });
+    // Screen ko automatically lock/dim hone se rokne ke liye
+    if ('wakeLock' in navigator) {
+      navigator.wakeLock.request('screen').catch((err) => {
+      console.log('WakeLock error:', err);
+   });
+ }
   </script>
 </body>
 </html>
