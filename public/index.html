@@ -113,6 +113,36 @@
       gap: 6px;
       margin-top: 12px;
     }
+    .btn-record {
+     display: inline-flex;
+     align-items: center;
+     gap: 6px;
+     background: rgba(239, 68, 68, 0.15);
+     border: 1px solid rgba(239, 68, 68, 0.4);
+     color: #fca5a5;
+     cursor: pointer;
+     padding: 6px 12px;
+     border-radius: 6px;
+     font-size: 13px;
+     font-weight: 500;
+     transition: all 0.2s ease;
+    }
+
+   .btn-record:hover {
+     background: rgba(239, 68, 68, 0.3);
+    }
+
+   .recording-active {
+     background: #ef4444 !important;
+     color: #ffffff !important;
+     animation: pulse-red 1.2s infinite;
+   }
+
+   @keyframes pulse-red {
+     0% { opacity: 1; }
+     50% { opacity: 0.6; }
+     100% { opacity: 1; }
+  }
     .btn {
       background: #1f2937;
       border: 1px solid #374151;
@@ -301,6 +331,13 @@
               <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
               Snap
             </button>
+            <!-- Record Button -->
+           <button class="btn btn-record" onclick="toggleRecord('${camId}')" id="rec-btn-${camId}">
+             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+             <circle cx="12" cy="12" r="8" fill="#ef4444"/>
+             </svg>
+             <span id="rec-text-${camId}">Record</span>
+           </button>
             <button class="btn" title="Enlarge View" onclick="openFullscreen('${data.camId}')">
               <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
               Focus
@@ -354,6 +391,67 @@
       link.href = feed.src;
       link.click();
     }
+
+    // Active recorders store karne ke liye map
+const activeRecorders = {};
+
+function toggleRecord(camId) {
+  const btn = document.getElementById(`rec-btn-${camId}`);
+  const text = document.getElementById(`rec-text-${camId}`);
+  const imgElement = document.getElementById(`img-${camId}`);
+
+  // Agar recording pehle se chal rahi hai toh STOP karein
+  if (activeRecorders[camId]) {
+    activeRecorders[camId].mediaRecorder.stop();
+    clearInterval(activeRecorders[camId].drawInterval);
+    delete activeRecorders[camId];
+
+    btn.classList.remove('recording-active');
+    text.innerText = 'Record';
+    return;
+  }
+
+  // Nayi recording START karein
+  const recCanvas = document.createElement('canvas');
+  recCanvas.width = 640;
+  recCanvas.height = 480;
+  const recCtx = recCanvas.getContext('2d');
+
+  // Stream capture karein
+  const stream = recCanvas.captureStream(20); // 20 FPS
+  const chunks = [];
+  const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
+
+  // Recording band hone par video file download karwana
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `CCTV_${camId}_${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Canvas par live frames draw karte rehna
+  const drawInterval = setInterval(() => {
+    if (imgElement && imgElement.naturalWidth) {
+      recCtx.drawImage(imgElement, 0, 0, recCanvas.width, recCanvas.height);
+    }
+  }, 50);
+
+  mediaRecorder.start();
+  activeRecorders[camId] = { mediaRecorder, drawInterval };
+
+  btn.classList.add('recording-active');
+  text.innerText = 'Stop';
+}
 
     // Full-Screen Focus Controls
     function openFullscreen(camId) {
