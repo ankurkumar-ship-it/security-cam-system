@@ -3,486 +3,576 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Surveillance Operations Center</title>
+  <title>CCTV Command Dashboard</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-base: #0a0e17;
+      --bg-surface: #121826;
+      --bg-card: #182234;
+      --border-color: #23334d;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --danger: #dc2626;
+      --danger-hover: #b91c1c;
+      --success: #059669;
+      --warning: #d97706;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
     body {
-      background-color: #0b0f19;
-      color: #f1f5f9;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 24px;
+      background-color: var(--bg-base);
+      color: var(--text-main);
       min-height: 100vh;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 20px;
-      border-bottom: 1px solid #1e293b;
-      margin-bottom: 24px;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .brand-icon {
-      width: 36px;
-      height: 36px;
-      background: #2563eb;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .brand-icon svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
-    .brand h1 {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-    .badge-counter {
-      background: #111827;
-      border: 1px solid #374151;
-      padding: 6px 14px;
-      border-radius: 9999px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #94a3b8;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-      gap: 20px;
-    }
-    .card {
-      background: #111827;
-      border: 1px solid #1f2937;
-      border-radius: 12px;
-      padding: 14px;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     }
-    .card-top {
+
+    /* Top Navigation Header */
+    header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 28px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
     }
-    .card-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: #cbd5e1;
+
+    .header-title {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 10px;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
-    .live-indicator {
+
+    .status-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      padding: 4px 10px;
       font-size: 11px;
-      font-weight: 700;
-      color: #22c55e;
-      background: rgba(34, 197, 94, 0.1);
-      padding: 2px 8px;
-      border-radius: 6px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-radius: 9999px;
+      background: rgba(5, 150, 105, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(5, 150, 105, 0.3);
     }
-    .dot {
-      width: 6px;
-      height: 6px;
-      background: #22c55e;
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      box-shadow: 0 0 8px #22c55e;
+      background: #10b981;
+      animation: pulse 2s infinite;
     }
-    .video-viewport {
-      width: 100%;
-      height: 220px;
-      background: #030712;
-      border-radius: 8px;
-      object-fit: cover;
-      display: block;
-      border: 1px solid #1e293b;
-      cursor: pointer;
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
     }
-    .action-bar {
+
+    /* Main Grid Layout */
+    .dashboard-container {
+      flex: 1;
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 6px;
-      margin-top: 12px;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
     }
-    .btn {
-      background: #1f2937;
-      border: 1px solid #374151;
-      color: #cbd5e1;
-      padding: 8px 4px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      transition: all 0.2s ease;
+
+    @media (max-width: 900px) {
+      .dashboard-container {
+        grid-template-columns: 1fr;
+      }
     }
-    .btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
-    .btn:hover {
-      background: #374151;
-      border-color: #4b5563;
-      color: #fff;
-    }
-    .btn-record {
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      color: #fca5a5;
-    }
-    .btn-record:hover {
-      background: rgba(239, 68, 68, 0.3);
-      border-color: #ef4444;
-      color: #fff;
-    }
-    .recording-active {
-      background: #ef4444 !important;
-      color: #ffffff !important;
-      border-color: #dc2626 !important;
-      animation: pulse-red 1.2s infinite;
-    }
-    @keyframes pulse-red {
-      0% { opacity: 1; }
-      50% { opacity: 0.6; }
-      100% { opacity: 1; }
-    }
-    .qr-card {
-      background: #111827;
-      border: 2px dashed #374151;
+
+    /* Video Player Card */
+    .viewport-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
       border-radius: 12px;
-      padding: 20px;
-      text-align: center;
+      padding: 16px;
       display: flex;
       flex-direction: column;
+      gap: 16px;
+    }
+
+    .screen-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #1e293b;
+      display: flex;
       align-items: center;
       justify-content: center;
     }
-    .qr-card h3 {
-      font-size: 15px;
+
+    .video-stream {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .no-feed-text {
+      color: #64748b;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+
+    .recording-indicator {
+      display: none;
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      background: rgba(220, 38, 38, 0.9);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+    }
+
+    /* Action Control Bar */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 18px;
+      border-radius: 6px;
+      font-size: 13px;
       font-weight: 600;
-      margin-bottom: 6px;
-      color: #f1f5f9;
+      letter-spacing: 0.3px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.05s ease;
+      user-select: none;
     }
-    .qr-card p {
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-snap {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-snap:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-record {
+      background: var(--danger);
+      color: white;
+    }
+    .btn-record:hover {
+      background: var(--danger-hover);
+    }
+
+    .btn-mic {
+      background: #1e293b;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+    }
+    .btn-mic.transmitting {
+      background: var(--warning);
+      border-color: var(--warning);
+      color: #000;
+    }
+
+    /* Sidebar Panels */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .panel-header {
       font-size: 12px;
-      color: #94a3b8;
-      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      font-weight: 600;
     }
-    .qr-frame {
+
+    /* Switch Component */
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+    }
+
+    .switch-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .switch-subtext {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #334155;
+      transition: 0.2s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.2s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* QR Code Card */
+    .qr-box {
+      text-align: center;
+      padding-top: 4px;
+    }
+
+    .qr-image {
+      width: 130px;
+      height: 130px;
       background: #ffffff;
       padding: 8px;
       border-radius: 8px;
-      display: inline-flex;
-    }
-    .qr-frame img {
-      width: 130px;
-      height: 130px;
+      margin: 8px auto 12px auto;
       display: block;
     }
-    .cam-url {
-      font-family: monospace;
-      font-size: 11px;
-      color: #38bdf8;
-      background: #030712;
-      padding: 6px 12px;
-      border-radius: 6px;
-      border: 1px solid #1e293b;
-      margin-top: 12px;
-      max-width: 100%;
-      overflow-wrap: break-word;
+
+    .instruction {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
     }
 
-    /* Modal for Full-Screen View */
-    .modal-overlay {
+    /* Toast Notification */
+    #statusToast {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(3, 7, 18, 0.95);
-      backdrop-filter: blur(10px);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      padding: 20px;
-    }
-    .modal-header {
-      width: 100%;
-      max-width: 960px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-    .modal-view {
-      width: 100%;
-      max-width: 960px;
-      max-height: 80vh;
-      object-fit: contain;
-      border-radius: 10px;
-      border: 1px solid #334155;
-      background: #000;
-    }
-    .btn-close {
-      background: #dc2626;
-      border: none;
-      color: #fff;
-      padding: 6px 14px;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 18px;
       border-radius: 6px;
-      cursor: pointer;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 500;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      z-index: 100;
     }
   </style>
 </head>
 <body>
 
+  <!-- Top Header -->
   <header>
-    <div class="brand">
-      <div class="brand-icon">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-        </svg>
-      </div>
-      <h1>Surveillance Operations Center</h1>
+    <div class="header-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+      </svg>
+      <span>Surveillance Control Console</span>
     </div>
-    <div class="badge-counter" id="activeCounter">Active Nodes: 0 / 5</div>
+    <div class="status-badge" id="systemStatus">
+      <span class="status-dot"></span>
+      <span>System Live</span>
+    </div>
   </header>
 
-  <div class="grid" id="nodeGrid">
-    <div class="qr-card">
-      <h3>Pair New Node</h3>
-      <p>Scan with any mobile device to connect camera</p>
-      <div class="qr-frame">
-        <img id="qrElement" src="" alt="Pairing QR" />
+  <!-- Main Workspace -->
+  <div class="dashboard-container">
+    
+    <!-- Primary Viewport Card -->
+    <div class="viewport-card">
+      <div class="screen-wrapper">
+        <div class="recording-indicator" id="recBadge">REC</div>
+        <img id="cctvFeed" class="video-stream" alt="No Stream Active" />
       </div>
-      <div class="cam-url" id="linkPlaceholder">Generating endpoint...</div>
+
+      <!-- Action Panel -->
+      <div class="actions-grid">
+        <!-- Capture Button -->
+        <button class="btn btn-snap" onclick="captureSnapshot()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          Capture Snapshot
+        </button>
+
+        <!-- Record Button -->
+        <button id="recordBtn" class="btn btn-record" onclick="toggleRecording()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="10"></circle>
+          </svg>
+          <span id="recordLabel">Start Recording</span>
+        </button>
+
+        <!-- Push to Talk Mic -->
+        <button id="intercomBtn" class="btn btn-mic" 
+                onmousedown="startVoiceTransmission()" 
+                onmouseup="endVoiceTransmission()" 
+                ontouchstart="startVoiceTransmission()" 
+                ontouchend="endVoiceTransmission()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+          <span id="intercomLabel">Push to Talk</span>
+        </button>
+      </div>
     </div>
+
+    <!-- Sidebar Right -->
+    <aside class="sidebar">
+      
+      <!-- Notifications Toggle Panel -->
+      <div class="panel-card">
+        <div class="panel-header">Alert Settings</div>
+        <div class="switch-row">
+          <div>
+            <div class="switch-label">Telegram Dispatch</div>
+            <div class="switch-subtext">Instant upload links sent to chat</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="alertToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Pairing QR Panel -->
+      <div class="panel-card qr-box">
+        <div class="panel-header">Mobile Pairing</div>
+        <img id="qrElement" class="qr-image" alt="Pairing QR Code" />
+        <p class="instruction">Scan using mobile camera to establish secure live transmitter stream.</p>
+      </div>
+
+    </aside>
+
   </div>
 
-  <!-- Fullscreen Modal -->
-  <div class="modal-overlay" id="fullscreenModal">
-    <div class="modal-header">
-      <h2 id="modalCamTitle" style="font-size: 16px;">Node Focused View</h2>
-      <button class="btn-close" onclick="closeFullscreen()">Exit</button>
-    </div>
-    <img id="modalPreview" class="modal-view" src="" alt="Full Screen Feed" />
-  </div>
+  <div id="statusToast"></div>
 
   <script>
     const socket = io();
-    const nodeGrid = document.getElementById('nodeGrid');
-    const activeCounter = document.getElementById('activeCounter');
-    const modal = document.getElementById('fullscreenModal');
-    const modalPreview = document.getElementById('modalPreview');
-    const modalCamTitle = document.getElementById('modalCamTitle');
+    const feed = document.getElementById('cctvFeed');
+    const alertToggle = document.getElementById('alertToggle');
+    const recBadge = document.getElementById('recBadge');
+    const recordBtn = document.getElementById('recordBtn');
+    const recordLabel = document.getElementById('recordLabel');
+    const intercomBtn = document.getElementById('intercomBtn');
+    const intercomLabel = document.getElementById('intercomLabel');
+    const toast = document.getElementById('statusToast');
 
-    const nodes = new Set();
-    let currentFocusCamId = null;
-    const activeRecorders = {};
+    let mediaRecorder, recordedChunks = [];
+    let isRecording = false;
 
-    fetch('/get-qr')
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('qrElement').src = data.qr;
-        document.getElementById('linkPlaceholder').innerText = data.url;
-      });
-
+    // Receive camera feed
     socket.on('stream-feed', (data) => {
-      let preview = document.getElementById(`feed-${data.camId}`);
-
-      if (!preview) {
-        nodes.add(data.camId);
-        updateNodeCount();
-
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.id = `card-${data.camId}`;
-        card.innerHTML = `
-          <div class="card-top">
-            <span class="card-title">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-              ${data.camId}
-            </span>
-            <span class="live-indicator"><span class="dot"></span>LIVE</span>
-          </div>
-          <img id="feed-${data.camId}" class="video-viewport" src="" alt="Live Stream" onclick="openFullscreen('${data.camId}')" />
-          <div class="action-bar">
-            <button class="btn" title="Capture Still" onclick="takeSnapshot('${data.camId}')">
-              <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-              Snap
-            </button>
-            <button class="btn btn-record" onclick="toggleRecord('${data.camId}')" id="rec-btn-${data.camId}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="12" r="8" fill="#ef4444"/>
-              </svg>
-              <span id="rec-text-${data.camId}">Rec</span>
-            </button>
-            <button class="btn" title="Enlarge View" onclick="openFullscreen('${data.camId}')">
-              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
-              Focus
-            </button>
-            <button class="btn" title="Toggle Flashlight" onclick="sendSignal('${data.camId}', 'torch')">
-              <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              Flash
-            </button>
-            <button class="btn" title="Switch Sensor" onclick="sendSignal('${data.camId}', 'flip')">
-              <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
-              Flip
-            </button>
-          </div>
-        `;
-        nodeGrid.insertBefore(card, nodeGrid.firstChild);
-        preview = document.getElementById(`feed-${data.camId}`);
-      }
-
-      preview.src = data.image;
-
-      if (currentFocusCamId === data.camId) {
-        modalPreview.src = data.image;
-      }
+      feed.src = data.image;
     });
 
-    socket.on('camera-status', (info) => {
-      if (info.status === 'disconnected') {
-        if (activeRecorders[info.id]) {
-          toggleRecord(info.id);
+    // Load QR pairing
+    fetch('/get-qr')
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('qrElement').src = d.qr;
+      })
+      .catch(e => console.error('QR fetch error:', e));
+
+    function notify(message, isError = false) {
+      toast.innerText = message;
+      toast.style.background = isError ? '#991b1b' : '#065f46';
+      toast.style.color = '#ffffff';
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 4000);
+    }
+
+    // Capture Snapshot
+    async function captureSnapshot() {
+      if (!feed.src || !feed.src.startsWith('data:image')) {
+        notify('Camera stream inactive', true);
+        return;
+      }
+      notify('Processing snapshot...');
+      try {
+        const res = await fetch(feed.src);
+        const blob = await res.blob();
+        await uploadToDrive(blob, `Snapshot_${Date.now()}.jpg`);
+      } catch (err) {
+        notify('Capture failed: ' + err.message, true);
+      }
+    }
+
+    // Toggle Recording
+    function toggleRecording() {
+      if (!isRecording) {
+        if (!feed.src || !feed.src.startsWith('data:image')) {
+          notify('Camera stream inactive', true);
+          return;
         }
-        const target = document.getElementById(`card-${info.id}`);
-        if (target) target.remove();
-        nodes.delete(info.id);
-        updateNodeCount();
-        if (currentFocusCamId === info.id) closeFullscreen();
-      }
-    });
 
-    function sendSignal(camId, action) {
-      socket.emit('control-command', { camId, action });
-    }
+        recordedChunks = [];
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const stream = canvas.captureStream(25);
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
 
-    function updateNodeCount() {
-      activeCounter.innerText = `Active Nodes: ${nodes.size} / 5`;
-    }
+        const drawLoop = setInterval(() => {
+          if (!isRecording) { clearInterval(drawLoop); return; }
+          canvas.width = feed.naturalWidth || 640;
+          canvas.height = feed.naturalHeight || 480;
+          ctx.drawImage(feed, 0, 0);
+        }, 40);
 
-    // Cloud Snapshot Upload
-async function takeSnapshot(camId) {
-  const feed = document.getElementById(`feed-${camId}`);
-  if (!feed || !feed.src) return;
+        mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+        mediaRecorder.onstop = async () => {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          notify('Uploading clip to Drive...');
+          await uploadToDrive(blob, `Footage_${Date.now()}.webm`);
+          recordLabel.innerText = 'Start Recording';
+          recBadge.style.display = 'none';
+        };
 
-  try {
-    const res = await fetch(feed.src);
-    const blob = await res.blob();
-
-    const formData = new FormData();
-    formData.append('mediaFile', blob, `Snapshot_${camId}_${Date.now()}.jpg`);
-
-    const uploadRes = await fetch('/upload-cloud', {
-      method: 'POST',
-      body: formData
-    });
-    const result = await uploadRes.json();
-
-    if (result.success) {
-      alert(`Snapshot Drive par upload ho gaya!\nFile: ${result.name}`);
-    } else {
-      alert(`Upload error: ${result.error}`);
-    }
-  } catch (err) {
-    console.error('Snapshot upload error:', err);
-  }
-}
-
-// Cloud Video Recording Upload
-function toggleRecord(camId) {
-  const btn = document.getElementById(`rec-btn-${camId}`);
-  const text = document.getElementById(`rec-text-${camId}`);
-  const feedElement = document.getElementById(`feed-${camId}`);
-
-  if (activeRecorders[camId]) {
-    activeRecorders[camId].mediaRecorder.stop();
-    clearInterval(activeRecorders[camId].drawInterval);
-    delete activeRecorders[camId];
-
-    btn.classList.remove('recording-active');
-    text.innerText = 'Rec';
-    return;
-  }
-
-  const recCanvas = document.createElement('canvas');
-  recCanvas.width = 640;
-  recCanvas.height = 480;
-  const recCtx = recCanvas.getContext('2d');
-
-  const stream = recCanvas.captureStream(20);
-  const chunks = [];
-  const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-
-  mediaRecorder.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
-  };
-
-  mediaRecorder.onstop = async () => {
-    const blob = new Blob(chunks, { type: 'video/webm' });
-    const formData = new FormData();
-    formData.append('mediaFile', blob, `CCTV_${camId}_${Date.now()}.webm`);
-
-    text.innerText = 'Saving...';
-
-    try {
-      const uploadRes = await fetch('/upload-cloud', {
-        method: 'POST',
-        body: formData
-      });
-      const result = await uploadRes.json();
-
-      if (result.success) {
-        alert(`Video clip Drive par upload ho gayi!\nFile: ${result.name}`);
+        mediaRecorder.start();
+        isRecording = true;
+        recordLabel.innerText = 'Stop Recording';
+        recBadge.style.display = 'block';
+        notify('Recording started');
       } else {
-        alert(`Video upload fail: ${result.error}`);
+        mediaRecorder.stop();
+        isRecording = false;
       }
-    } catch (err) {
-      console.error('Video upload error:', err);
-    } finally {
-      text.innerText = 'Rec';
-    }
-  };
-
-  const drawInterval = setInterval(() => {
-    if (feedElement && feedElement.naturalWidth) {
-      recCtx.drawImage(feedElement, 0, 0, recCanvas.width, recCanvas.height);
-    }
-  }, 50);
-
-  mediaRecorder.start();
-  activeRecorders[camId] = { mediaRecorder, drawInterval };
-
-  btn.classList.add('recording-active');
-  text.innerText = 'Stop';
-}
-    // Full-Screen Focus Controls
-    function openFullscreen(camId) {
-      currentFocusCamId = camId;
-      modalCamTitle.innerText = `Focused View: ${camId}`;
-      const source = document.getElementById(`feed-${camId}`);
-      if (source) modalPreview.src = source.src;
-      modal.style.display = 'flex';
     }
 
-    function closeFullscreen() {
-      currentFocusCamId = null;
-      modal.style.display = 'none';
-      modalPreview.src = '';
+    // Upload to Google Drive API
+    async function uploadToDrive(blob, filename) {
+      const formData = new FormData();
+      formData.append('mediaFile', blob, filename);
+
+      const isAlertActive = alertToggle.checked;
+      try {
+        const res = await fetch(`/upload-cloud?sendAlert=${isAlertActive}`, {
+          method: 'POST',
+          body: formData
+        });
+        const d = await res.json();
+        if (d.success) {
+          notify(`Uploaded: ${d.name}`);
+        } else {
+          notify('Upload failed: ' + d.error, true);
+        }
+      } catch (err) {
+        notify('Network error: ' + err.message, true);
+      }
+    }
+
+    // Two-Way Push-To-Talk Intercom
+    let micStream = null;
+    let micRecorder = null;
+
+    async function startVoiceTransmission() {
+      try {
+        intercomBtn.classList.add('transmitting');
+        intercomLabel.innerText = 'Transmitting Voice...';
+
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micRecorder = new MediaRecorder(micStream);
+        micRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            socket.emit('intercom-audio', e.data);
+          }
+        };
+        micRecorder.start(250);
+      } catch (err) {
+        console.error('Audio device access error:', err);
+        notify('Microphone permission required', true);
+        endVoiceTransmission();
+      }
+    }
+
+    function endVoiceTransmission() {
+      intercomBtn.classList.remove('transmitting');
+      intercomLabel.innerText = 'Push to Talk';
+
+      if (micRecorder && micRecorder.state !== 'inactive') {
+        micRecorder.stop();
+      }
+      if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+      }
     }
   </script>
 </body>
