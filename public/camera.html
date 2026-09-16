@@ -138,19 +138,19 @@
       }
     }
 
-    // High performance 30 FPS Stream
-    video.addEventListener('play', () => {
-      canvas.width = 480;
-      canvas.height = 360;
+    // Data-Saver Mode: 6 FPS + Optimized Compression
+  video.addEventListener('play', () => {
+    canvas.width = 400;
+    canvas.height = 300;
 
-      setInterval(() => {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const frame = canvas.toDataURL('image/jpeg', 0.45);
-          socket.emit('stream-frame', { camId: activeCamId, image: frame });
-        }
-      }, 33);
-    });
+    setInterval(() => {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frame = canvas.toDataURL('image/jpeg', 0.28);
+        socket.emit('stream-frame', { camId: activeCamId, image: frame });
+      }
+    }, 160);
+  });
 
     // Remote Dashboard Control Commands
     socket.on('execute-command', (action) => {
