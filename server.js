@@ -26,7 +26,7 @@ const auth = new google.auth.GoogleAuth({
 const drive = google.drive({ version: 'v3', auth });
 
 // YAHAN APNI GOOGLE DRIVE FOLDER ID PASTE KAREIN:
-const GOOGLE_DRIVE_FOLDER_ID = 'https://drive.google.com/drive/u/0/folders/1P5JEiCj-paiDQtv82CpkNc21u_gCCTcK';
+const GOOGLE_DRIVE_FOLDER_ID = '1P5JEiCj-paiDQtv82CpkNc21u_gCCTcK';
 
 app.use(express.static(path.join(__dirname, 'public')));
 
