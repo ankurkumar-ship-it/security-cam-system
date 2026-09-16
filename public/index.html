@@ -15,7 +15,6 @@
       --accent-blue-hover: #1d4ed8;
       --accent-red: #dc2626;
       --accent-red-hover: #b91c1c;
-      --accent-green: #059669;
       --accent-amber: #d97706;
       --text-high: #f8fafc;
       --text-muted: #94a3b8;
@@ -24,7 +23,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg-main); color: var(--text-high); min-height: 100vh; display: flex; flex-direction: column; }
 
-    /* Top Console Header */
     header {
       background: var(--bg-panel); border-bottom: 1px solid var(--border-line);
       padding: 12px 24px; display: flex; justify-content: space-between; align-items: center;
@@ -38,7 +36,6 @@
     }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; }
 
-    /* Layout Workspace */
     .matrix-workspace {
       flex: 1; display: grid; grid-template-columns: 1fr 320px; gap: 20px;
       padding: 20px; max-width: 1600px; margin: 0 auto; width: 100%;
@@ -53,6 +50,7 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 14px;
+      transition: all 0.3s ease;
     }
 
     @media (max-width: 800px) {
@@ -62,15 +60,39 @@
     .cam-box {
       position: relative; background: #000; border-radius: 8px;
       aspect-ratio: 16/9; overflow: hidden; border: 2px solid var(--border-line);
-      cursor: pointer; transition: 0.15s; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: transform 0.2s, border-color 0.2s; display: flex; align-items: center; justify-content: center;
     }
 
     .cam-box.active {
       border-color: var(--accent-blue);
-      box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
+      box-shadow: 0 0 14px rgba(37, 99, 235, 0.5);
     }
 
-    .cam-box img { width: 100%; height: 100%; object-fit: contain; }
+    /* Fullscreen Maximize Mode */
+    .cam-box.maximized {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+      width: calc(100vw - 40px) !important;
+      height: calc(100vh - 40px) !important;
+      aspect-ratio: unset;
+      z-index: 9999;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.95);
+      border-color: var(--accent-blue);
+    }
+
+    .cam-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    .cam-box img:not([src]) {
+      display: none;
+    }
 
     .cam-tag {
       position: absolute; top: 10px; left: 10px; z-index: 5;
@@ -82,13 +104,21 @@
     .cam-status-dot { width: 6px; height: 6px; border-radius: 50%; background: #64748b; }
     .cam-status-dot.online { background: #10b981; }
 
+    .expand-btn {
+      position: absolute; bottom: 10px; right: 10px; z-index: 6;
+      background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px; padding: 4px; display: flex; align-items: center; justify-content: center;
+      color: #fff; cursor: pointer; transition: 0.2s;
+    }
+    .expand-btn:hover { background: var(--accent-blue); }
+
     .rec-indicator {
       display: none; position: absolute; top: 10px; right: 10px; z-index: 5;
       background: var(--accent-red); color: white; padding: 2px 6px;
       border-radius: 4px; font-size: 10px; font-weight: 800;
     }
 
-    /* Bottom Control Deck */
+    /* Control Deck */
     .control-deck {
       margin-top: 14px; background: var(--bg-panel); border: 1px solid var(--border-line);
       border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px;
@@ -117,7 +147,7 @@
     .btn-dark:hover { background: #202d44; }
     .btn-dark.transmitting { background: var(--accent-amber); color: #000; }
 
-    /* Right Sidebar */
+    /* Sidebar */
     .sidebar { display: flex; flex-direction: column; gap: 16px; }
     .panel {
       background: var(--bg-panel); border: 1px solid var(--border-line);
@@ -152,7 +182,7 @@
     #toast {
       position: fixed; bottom: 20px; right: 20px; padding: 10px 18px;
       border-radius: 6px; font-size: 13px; font-weight: 500; display: none;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.5); z-index: 100;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.5); z-index: 10000;
     }
   </style>
 </head>
@@ -175,41 +205,56 @@
   <div class="matrix-workspace">
 
     <div>
-      <!-- 5-Screen Matrix Grid -->
+      <!-- 5 Video Channel Matrix -->
       <div class="grid-container">
         <!-- Cam 1 -->
-        <div class="cam-box active" id="box-cam-1" onclick="selectCamera('cam-1', 'Camera 01')">
+        <div class="cam-box active" id="box-cam-1" onclick="selectCamera('cam-1', 'Camera 01')" ondblclick="toggleMaximize('cam-1')">
           <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-1"></span>CAM 01</div>
           <div class="rec-indicator" id="rec-cam-1">REC</div>
-          <img id="feed-cam-1" alt="Signal Lost" />
+          <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-1');">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
+          <img id="feed-cam-1" />
         </div>
 
         <!-- Cam 2 -->
-        <div class="cam-box" id="box-cam-2" onclick="selectCamera('cam-2', 'Camera 02')">
+        <div class="cam-box" id="box-cam-2" onclick="selectCamera('cam-2', 'Camera 02')" ondblclick="toggleMaximize('cam-2')">
           <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-2"></span>CAM 02</div>
           <div class="rec-indicator" id="rec-cam-2">REC</div>
-          <img id="feed-cam-2" alt="Signal Lost" />
+          <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-2');">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
+          <img id="feed-cam-2" />
         </div>
 
         <!-- Cam 3 -->
-        <div class="cam-box" id="box-cam-3" onclick="selectCamera('cam-3', 'Camera 03')">
+        <div class="cam-box" id="box-cam-3" onclick="selectCamera('cam-3', 'Camera 03')" ondblclick="toggleMaximize('cam-3')">
           <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-3"></span>CAM 03</div>
           <div class="rec-indicator" id="rec-cam-3">REC</div>
-          <img id="feed-cam-3" alt="Signal Lost" />
+          <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-3');">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
+          <img id="feed-cam-3" />
         </div>
 
         <!-- Cam 4 -->
-        <div class="cam-box" id="box-cam-4" onclick="selectCamera('cam-4', 'Camera 04')">
+        <div class="cam-box" id="box-cam-4" onclick="selectCamera('cam-4', 'Camera 04')" ondblclick="toggleMaximize('cam-4')">
           <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-4"></span>CAM 04</div>
           <div class="rec-indicator" id="rec-cam-4">REC</div>
-          <img id="feed-cam-4" alt="Signal Lost" />
+          <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-4');">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
+          <img id="feed-cam-4" />
         </div>
 
         <!-- Cam 5 -->
-        <div class="cam-box" id="box-cam-5" onclick="selectCamera('cam-5', 'Camera 05')">
+        <div class="cam-box" id="box-cam-5" onclick="selectCamera('cam-5', 'Camera 05')" ondblclick="toggleMaximize('cam-5')">
           <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-5"></span>CAM 05</div>
           <div class="rec-indicator" id="rec-cam-5">REC</div>
-          <img id="feed-cam-5" alt="Signal Lost" />
+          <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-5');">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
+          <img id="feed-cam-5" />
         </div>
       </div>
 
@@ -217,11 +262,10 @@
       <div class="control-deck">
         <div class="control-header">
           <span>Active Transmitter: <span class="active-cam-title" id="selectedCamTitle">Camera 01</span></span>
-          <span style="font-size: 11px; color: var(--text-muted);">Commands target this camera</span>
+          <span style="font-size: 11px; color: var(--text-muted);">Double-click camera or click expand icon for Big Screen</span>
         </div>
 
         <div class="actions-grid">
-          <!-- Snapshot -->
           <button class="btn btn-blue" onclick="captureTargetSnapshot()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -231,7 +275,6 @@
             <span>Snapshot</span>
           </button>
 
-          <!-- Record Toggle -->
           <button id="recordBtn" class="btn btn-red" onclick="toggleTargetRecord()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="12" cy="12" r="10"></circle>
@@ -239,7 +282,6 @@
             <span id="recLabel">Record</span>
           </button>
 
-          <!-- Flip Front/Back Lens -->
           <button class="btn btn-dark" onclick="sendTargetCmd('flip')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 2.21 1.005 4.21 2.618 5.567L4 20h6v-6l-2.45 2.45C6.012 15.228 5 13.728 5 12c0-3.866 3.134-7 7-7s7 3.134 7 7c0 1.728-1.012 3.228-2.55 4.45L14 14v6h6l-2.618-2.433C18.995 16.21 20 14.21 20 12z"/>
@@ -247,7 +289,6 @@
             <span>Flip Lens</span>
           </button>
 
-          <!-- Torch Trigger -->
           <button class="btn btn-dark" onclick="sendTargetCmd('torch')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
@@ -255,7 +296,6 @@
             <span>Flashlight</span>
           </button>
 
-          <!-- Push to Talk Intercom -->
           <button id="intercomBtn" class="btn btn-dark"
                   onmousedown="startVoice()" onmouseup="stopVoice()"
                   ontouchstart="startVoice()" ontouchend="stopVoice()">
@@ -286,9 +326,9 @@
       </div>
 
       <div class="panel qr-center">
-        <div class="panel-label">Node Transmitter Pairing</div>
+        <div class="panel-label">Transmitter Pairing</div>
         <img id="qrElement" alt="QR" />
-        <p>Scan with any of your 5 phones to bind as camera source.</p>
+        <p>Scan with any of your phones to connect as camera source.</p>
       </div>
     </aside>
 
@@ -333,7 +373,7 @@
       }
     });
 
-    // Camera Online/Offline Status
+    // Camera Status Indicator
     socket.on('camera-status-update', (data) => {
       const dot = document.getElementById(`dot-${data.camId}`);
       if (dot) {
@@ -342,7 +382,7 @@
       }
     });
 
-    // Select Active Camera in Matrix
+    // Active Selection
     function selectCamera(camId, title) {
       document.querySelectorAll('.cam-box').forEach(b => b.classList.remove('active'));
       document.getElementById(`box-${camId}`).classList.add('active');
@@ -351,13 +391,24 @@
       document.getElementById('selectedCamTitle').innerText = title;
     }
 
-    // Send targeted hardware command (flip/torch)
+    // Toggle Screen Maximize (Bada Screen)
+    function toggleMaximize(camId) {
+      const box = document.getElementById(`box-${camId}`);
+      box.classList.toggle('maximized');
+    }
+
+    // ESC key closes maximized camera
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.cam-box.maximized').forEach(b => b.classList.remove('maximized'));
+      }
+    });
+
     function sendTargetCmd(action) {
       socket.emit('control-command', { targetCam: activeCam, action: action });
       notify(`${activeTitle}: Sent ${action}`);
     }
 
-    // Convert Base64 dataURL to Blob
     function base64ToBlob(dataURI) {
       const parts = dataURI.split(',');
       const byteString = atob(parts[1]);
@@ -370,7 +421,7 @@
       return new Blob([uintArray], { type: mimeString });
     }
 
-    // Snapshot of Active Camera
+    // Snapshot
     async function captureTargetSnapshot() {
       const feed = document.getElementById(`feed-${activeCam}`);
       if (!feed.src || !feed.src.startsWith('data:image')) {
@@ -387,7 +438,7 @@
       }
     }
 
-    // Video Recording of Active Camera
+    // Recording
     function toggleTargetRecord() {
       const feed = document.getElementById(`feed-${activeCam}`);
       const recTag = document.getElementById(`rec-${activeCam}`);
@@ -435,7 +486,7 @@
       }
     }
 
-    // Upload Pipe to Google Drive
+    // Upload to Google Drive
     async function uploadToDrive(blob, filename) {
       const formData = new FormData();
       formData.append('mediaFile', blob, filename);
@@ -457,7 +508,7 @@
       }
     }
 
-    // Two-Way Push-To-Talk Voice Intercom
+    // Push to Talk
     let micStream, micRecorder;
 
     async function startVoice() {
@@ -482,7 +533,7 @@
       intercomBtn.classList.remove('transmitting');
       micLabel.innerText = 'Intercom';
       if (micRecorder && micRecorder.state !== 'inactive') micRecorder.stop();
-      if (micStream) micStream.getTracks().forEach(track => track.stop());
+      if (micStream) micStream.getTracks().forEach(t => t.stop());
     }
   </script>
 </body>
