@@ -375,71 +375,101 @@
       activeCounter.innerText = `Active Nodes: ${nodes.size} / 5`;
     }
 
-    // Snapshot Function
-    function takeSnapshot(camId) {
-      const feed = document.getElementById(`feed-${camId}`);
-      if (!feed || !feed.src) return;
+    // Cloud Snapshot Upload
+async function takeSnapshot(camId) {
+  const feed = document.getElementById(`feed-${camId}`);
+  if (!feed || !feed.src) return;
 
-      const link = document.createElement('a');
-      link.download = `Snapshot_${camId}_${Date.now()}.jpg`;
-      link.href = feed.src;
-      link.click();
+  try {
+    const res = await fetch(feed.src);
+    const blob = await res.blob();
+
+    const formData = new FormData();
+    formData.append('mediaFile', blob, `Snapshot_${camId}_${Date.now()}.jpg`);
+
+    const uploadRes = await fetch('/upload-cloud', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await uploadRes.json();
+
+    if (result.success) {
+      alert(`Snapshot Drive par upload ho gaya!\nFile: ${result.name}`);
+    } else {
+      alert(`Upload error: ${result.error}`);
     }
+  } catch (err) {
+    console.error('Snapshot upload error:', err);
+  }
+}
 
-    // Video Recording Logic
-    function toggleRecord(camId) {
-      const btn = document.getElementById(`rec-btn-${camId}`);
-      const text = document.getElementById(`rec-text-${camId}`);
-      const feedElement = document.getElementById(`feed-${camId}`);
+// Cloud Video Recording Upload
+function toggleRecord(camId) {
+  const btn = document.getElementById(`rec-btn-${camId}`);
+  const text = document.getElementById(`rec-text-${camId}`);
+  const feedElement = document.getElementById(`feed-${camId}`);
 
-      if (activeRecorders[camId]) {
-        activeRecorders[camId].mediaRecorder.stop();
-        clearInterval(activeRecorders[camId].drawInterval);
-        delete activeRecorders[camId];
+  if (activeRecorders[camId]) {
+    activeRecorders[camId].mediaRecorder.stop();
+    clearInterval(activeRecorders[camId].drawInterval);
+    delete activeRecorders[camId];
 
-        btn.classList.remove('recording-active');
-        text.innerText = 'Rec';
-        return;
+    btn.classList.remove('recording-active');
+    text.innerText = 'Rec';
+    return;
+  }
+
+  const recCanvas = document.createElement('canvas');
+  recCanvas.width = 640;
+  recCanvas.height = 480;
+  const recCtx = recCanvas.getContext('2d');
+
+  const stream = recCanvas.captureStream(20);
+  const chunks = [];
+  const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const formData = new FormData();
+    formData.append('mediaFile', blob, `CCTV_${camId}_${Date.now()}.webm`);
+
+    text.innerText = 'Saving...';
+
+    try {
+      const uploadRes = await fetch('/upload-cloud', {
+        method: 'POST',
+        body: formData
+      });
+      const result = await uploadRes.json();
+
+      if (result.success) {
+        alert(`Video clip Drive par upload ho gayi!\nFile: ${result.name}`);
+      } else {
+        alert(`Video upload fail: ${result.error}`);
       }
-
-      const recCanvas = document.createElement('canvas');
-      recCanvas.width = 640;
-      recCanvas.height = 480;
-      const recCtx = recCanvas.getContext('2d');
-
-      const stream = recCanvas.captureStream(20);
-      const chunks = [];
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `CCTV_${camId}_${Date.now()}.webm`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-      };
-
-      const drawInterval = setInterval(() => {
-        if (feedElement && feedElement.naturalWidth) {
-          recCtx.drawImage(feedElement, 0, 0, recCanvas.width, recCanvas.height);
-        }
-      }, 50);
-
-      mediaRecorder.start();
-      activeRecorders[camId] = { mediaRecorder, drawInterval };
-
-      btn.classList.add('recording-active');
-      text.innerText = 'Stop';
+    } catch (err) {
+      console.error('Video upload error:', err);
+    } finally {
+      text.innerText = 'Rec';
     }
+  };
 
+  const drawInterval = setInterval(() => {
+    if (feedElement && feedElement.naturalWidth) {
+      recCtx.drawImage(feedElement, 0, 0, recCanvas.width, recCanvas.height);
+    }
+  }, 50);
+
+  mediaRecorder.start();
+  activeRecorders[camId] = { mediaRecorder, drawInterval };
+
+  btn.classList.add('recording-active');
+  text.innerText = 'Stop';
+}
     // Full-Screen Focus Controls
     function openFullscreen(camId) {
       currentFocusCamId = camId;
