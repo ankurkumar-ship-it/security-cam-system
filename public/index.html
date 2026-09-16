@@ -3,21 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CCTV Command Dashboard</title>
+  <title>Surveillance Operations Console</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     :root {
-      --bg-base: #0a0e17;
-      --bg-surface: #121826;
-      --bg-card: #182234;
-      --border-color: #23334d;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --danger: #dc2626;
-      --danger-hover: #b91c1c;
-      --success: #059669;
-      --warning: #d97706;
-      --text-main: #f1f5f9;
+      --bg-canvas: #090d16;
+      --bg-panel: #111827;
+      --bg-subtle: #1f293d;
+      --border-dark: #243049;
+      --border-focus: #3b82f6;
+      --accent-blue: #2563eb;
+      --accent-blue-hover: #1d4ed8;
+      --accent-red: #dc2626;
+      --accent-red-hover: #b91c1c;
+      --accent-green: #059669;
+      --accent-amber: #d97706;
+      --text-main: #f8fafc;
       --text-muted: #94a3b8;
     }
 
@@ -29,37 +30,47 @@
     }
 
     body {
-      background-color: var(--bg-base);
+      background-color: var(--bg-canvas);
       color: var(--text-main);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
-    /* Top Navigation Header */
+    /* Top Application Bar */
     header {
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-dark);
       padding: 14px 28px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
-    .header-title {
+    .brand-title {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 17px;
+      gap: 12px;
+      font-size: 16px;
       font-weight: 600;
       letter-spacing: 0.5px;
+    }
+
+    .brand-title svg {
+      color: var(--accent-blue);
+    }
+
+    .header-pills {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
     .status-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
+      gap: 8px;
+      padding: 5px 12px;
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
@@ -75,84 +86,97 @@
       height: 7px;
       border-radius: 50%;
       background: #10b981;
-      animation: pulse 2s infinite;
+      box-shadow: 0 0 8px #10b981;
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    /* Main Grid Layout */
-    .dashboard-container {
+    /* Primary Dashboard Grid */
+    .dashboard-layout {
       flex: 1;
       display: grid;
       grid-template-columns: 1fr 340px;
-      gap: 20px;
+      gap: 24px;
       padding: 24px;
-      max-width: 1400px;
+      max-width: 1440px;
       margin: 0 auto;
       width: 100%;
     }
 
-    @media (max-width: 900px) {
-      .dashboard-container {
+    @media (max-width: 960px) {
+      .dashboard-layout {
         grid-template-columns: 1fr;
       }
     }
 
-    /* Video Player Card */
-    .viewport-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
+    /* Video Terminal Section */
+    .viewport-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dark);
       border-radius: 12px;
-      padding: 16px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 20px;
     }
 
-    .screen-wrapper {
+    .screen-container {
       position: relative;
       width: 100%;
       aspect-ratio: 16/9;
       background: #000;
       border-radius: 8px;
       overflow: hidden;
-      border: 1px solid #1e293b;
+      border: 1px solid var(--border-dark);
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
-    .video-stream {
+    .screen-container img {
       width: 100%;
       height: 100%;
       object-fit: contain;
     }
 
-    .no-feed-text {
-      color: #64748b;
-      font-size: 13px;
-      letter-spacing: 0.5px;
+    .live-indicator {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      backdrop-filter: blur(4px);
     }
 
-    .recording-indicator {
+    .recording-badge {
       display: none;
       position: absolute;
-      top: 14px;
-      left: 14px;
-      background: rgba(220, 38, 38, 0.9);
-      color: white;
+      top: 16px;
+      right: 16px;
+      background: var(--accent-red);
+      color: #fff;
       padding: 4px 10px;
       border-radius: 4px;
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.8px;
+      animation: pulse-red 1.5s infinite;
     }
 
-    /* Action Control Bar */
-    .actions-grid {
+    @keyframes pulse-red {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Controls Grid */
+    .controls-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 12px;
@@ -163,92 +187,96 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 11px 18px;
-      border-radius: 6px;
+      padding: 12px 16px;
+      border-radius: 8px;
       font-size: 13px;
       font-weight: 600;
-      letter-spacing: 0.3px;
       border: none;
       cursor: pointer;
-      transition: background 0.15s ease, transform 0.05s ease;
       user-select: none;
+      transition: background 0.15s ease, transform 0.05s ease, border-color 0.15s ease;
     }
 
     .btn:active {
       transform: scale(0.98);
     }
 
-    .btn-snap {
-      background: var(--primary);
-      color: white;
+    .btn-primary {
+      background: var(--accent-blue);
+      color: #fff;
     }
-    .btn-snap:hover {
-      background: var(--primary-hover);
-    }
-
-    .btn-record {
-      background: var(--danger);
-      color: white;
-    }
-    .btn-record:hover {
-      background: var(--danger-hover);
+    .btn-primary:hover {
+      background: var(--accent-blue-hover);
     }
 
-    .btn-mic {
-      background: #1e293b;
+    .btn-danger {
+      background: var(--accent-red);
+      color: #fff;
+    }
+    .btn-danger:hover {
+      background: var(--accent-red-hover);
+    }
+
+    .btn-surface {
+      background: var(--bg-subtle);
       color: var(--text-main);
-      border: 1px solid var(--border-color);
+      border: 1px solid var(--border-dark);
     }
-    .btn-mic.transmitting {
-      background: var(--warning);
-      border-color: var(--warning);
+    .btn-surface:hover {
+      background: #28354f;
+      border-color: #3b4d70;
+    }
+
+    .btn-surface.active-transmitting {
+      background: var(--accent-amber);
       color: #000;
+      border-color: var(--accent-amber);
     }
 
     /* Sidebar Panels */
-    .sidebar {
+    .sidebar-layout {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 20px;
     }
 
-    .panel-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
+    .card-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dark);
       border-radius: 12px;
-      padding: 18px;
+      padding: 20px;
     }
 
-    .panel-header {
+    .card-title {
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: var(--text-muted);
-      margin-bottom: 14px;
+      margin-bottom: 16px;
       font-weight: 600;
     }
 
-    /* Switch Component */
-    .switch-row {
+    .setting-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 0;
+      padding: 6px 0;
     }
 
-    .switch-label {
+    .setting-info h4 {
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       color: var(--text-main);
     }
 
-    .switch-subtext {
-      font-size: 11px;
+    .setting-info p {
+      font-size: 12px;
       color: var(--text-muted);
       margin-top: 2px;
     }
 
-    .toggle-switch {
+    /* Standard Toggle Switch */
+    .toggle {
       position: relative;
       display: inline-block;
       width: 44px;
@@ -256,25 +284,22 @@
       flex-shrink: 0;
     }
 
-    .toggle-switch input {
+    .toggle input {
       opacity: 0;
       width: 0;
       height: 0;
     }
 
-    .slider {
+    .toggle-slider {
       position: absolute;
       cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      inset: 0;
       background-color: #334155;
       transition: 0.2s;
       border-radius: 24px;
     }
 
-    .slider:before {
+    .toggle-slider:before {
       position: absolute;
       content: "";
       height: 18px;
@@ -286,31 +311,38 @@
       border-radius: 50%;
     }
 
-    input:checked + .slider {
-      background-color: var(--primary);
+    input:checked + .toggle-slider {
+      background-color: var(--accent-blue);
     }
 
-    input:checked + .slider:before {
+    input:checked + .toggle-slider:before {
       transform: translateX(20px);
     }
 
-    /* QR Code Card */
-    .qr-box {
+    /* QR Code Pairing Block */
+    .qr-container {
       text-align: center;
-      padding-top: 4px;
     }
 
-    .qr-image {
-      width: 130px;
-      height: 130px;
+    .qr-wrapper {
       background: #ffffff;
+      width: 140px;
+      height: 140px;
       padding: 8px;
       border-radius: 8px;
-      margin: 8px auto 12px auto;
-      display: block;
+      margin: 8px auto 14px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .instruction {
+    .qr-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .qr-caption {
       font-size: 12px;
       color: var(--text-muted);
       line-height: 1.5;
@@ -319,132 +351,159 @@
     /* Toast Notification */
     #statusToast {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 10px 18px;
-      border-radius: 6px;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      border-radius: 8px;
       font-size: 13px;
       font-weight: 500;
       display: none;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-      z-index: 100;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
   </style>
 </head>
 <body>
 
-  <!-- Top Header -->
+  <!-- App Header -->
   <header>
-    <div class="header-title">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <div class="brand-title">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
         <circle cx="12" cy="13" r="4"></circle>
       </svg>
       <span>Surveillance Control Console</span>
     </div>
-    <div class="status-badge" id="systemStatus">
-      <span class="status-dot"></span>
-      <span>System Live</span>
+
+    <div class="header-pills">
+      <div class="status-badge" id="networkBadge">
+        <span class="status-dot"></span>
+        <span>Online</span>
+      </div>
     </div>
   </header>
 
-  <!-- Main Workspace -->
-  <div class="dashboard-container">
-    
-    <!-- Primary Viewport Card -->
-    <div class="viewport-card">
-      <div class="screen-wrapper">
-        <div class="recording-indicator" id="recBadge">REC</div>
-        <img id="cctvFeed" class="video-stream" alt="No Stream Active" />
+  <!-- Main Container -->
+  <main class="dashboard-layout">
+
+    <!-- Center Monitor Screen -->
+    <section class="viewport-panel">
+      <div class="screen-container">
+        <div class="live-indicator">
+          <span class="status-dot"></span>
+          <span>Feed Live</span>
+        </div>
+        <div class="recording-badge" id="recBadge">REC 00:00</div>
+        <img id="cctvFeed" alt="Camera Feed Inactive / Scan QR Code" />
       </div>
 
-      <!-- Action Panel -->
-      <div class="actions-grid">
-        <!-- Capture Button -->
-        <button class="btn btn-snap" onclick="captureSnapshot()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-            <circle cx="12" cy="13" r="4"></circle>
+      <!-- Operational Toolbar -->
+      <div class="controls-grid">
+        <!-- Capture Snapshot -->
+        <button class="btn btn-primary" onclick="captureSnapshot()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
           </svg>
-          Capture Snapshot
+          <span>Capture</span>
         </button>
 
-        <!-- Record Button -->
-        <button id="recordBtn" class="btn btn-record" onclick="toggleRecording()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <!-- Record Video Toggle -->
+        <button id="recordBtn" class="btn btn-danger" onclick="toggleRecording()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="12" r="10"></circle>
           </svg>
-          <span id="recordLabel">Start Recording</span>
+          <span id="recordLabel">Record</span>
         </button>
 
-        <!-- Push to Talk Mic -->
-        <button id="intercomBtn" class="btn btn-mic" 
-                onmousedown="startVoiceTransmission()" 
-                onmouseup="endVoiceTransmission()" 
-                ontouchstart="startVoiceTransmission()" 
-                ontouchend="endVoiceTransmission()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- Lens Switch (Front / Rear) -->
+        <button class="btn btn-surface" onclick="sendCameraCmd('flip')">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 2.21 1.005 4.21 2.618 5.567L4 20h6v-6l-2.45 2.45C6.012 15.228 5 13.728 5 12c0-3.866 3.134-7 7-7s7 3.134 7 7c0 1.728-1.012 3.228-2.55 4.45L14 14v6h6l-2.618-2.433C18.995 16.21 20 14.21 20 12z"/>
+          </svg>
+          <span>Flip Lens</span>
+        </button>
+
+        <!-- Flashlight Torch -->
+        <button class="btn btn-surface" onclick="sendCameraCmd('torch')">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span>Flashlight</span>
+        </button>
+
+        <!-- Two-Way Intercom (Push to Talk) -->
+        <button id="intercomBtn" class="btn btn-surface" 
+                onmousedown="startVoice()" onmouseup="endVoice()"
+                ontouchstart="startVoice()" ontouchend="endVoice()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
             <line x1="12" y1="19" x2="12" y2="23"></line>
             <line x1="8" y1="23" x2="16" y2="23"></line>
           </svg>
-          <span id="intercomLabel">Push to Talk</span>
+          <span id="micLabel">Push to Talk</span>
         </button>
       </div>
-    </div>
+    </section>
 
-    <!-- Sidebar Right -->
-    <aside class="sidebar">
-      
-      <!-- Notifications Toggle Panel -->
-      <div class="panel-card">
-        <div class="panel-header">Alert Settings</div>
-        <div class="switch-row">
-          <div>
-            <div class="switch-label">Telegram Dispatch</div>
-            <div class="switch-subtext">Instant upload links sent to chat</div>
+    <!-- Sidebar Management -->
+    <aside class="sidebar-layout">
+
+      <!-- Alerts Panel -->
+      <section class="card-panel">
+        <h3 class="card-title">Dispatch Control</h3>
+        <div class="setting-item">
+          <div class="setting-info">
+            <h4>Telegram Alert</h4>
+            <p>Forward links to Telegram</p>
           </div>
-          <label class="toggle-switch">
+          <label class="toggle">
             <input type="checkbox" id="alertToggle" checked>
-            <span class="slider"></span>
+            <span class="toggle-slider"></span>
           </label>
         </div>
-      </div>
+      </section>
 
-      <!-- Pairing QR Panel -->
-      <div class="panel-card qr-box">
-        <div class="panel-header">Mobile Pairing</div>
-        <img id="qrElement" class="qr-image" alt="Pairing QR Code" />
-        <p class="instruction">Scan using mobile camera to establish secure live transmitter stream.</p>
-      </div>
+      <!-- Connection Pairing -->
+      <section class="card-panel qr-container">
+        <h3 class="card-title">Transmitter Link</h3>
+        <div class="qr-wrapper">
+          <img id="qrElement" alt="QR Code" />
+        </div>
+        <p class="qr-caption">Scan with mobile browser to activate camera sensor.</p>
+      </section>
 
     </aside>
 
-  </div>
+  </main>
 
   <div id="statusToast"></div>
 
   <script>
     const socket = io();
     const feed = document.getElementById('cctvFeed');
-    const alertToggle = document.getElementById('alertToggle');
+    const toast = document.getElementById('statusToast');
     const recBadge = document.getElementById('recBadge');
     const recordBtn = document.getElementById('recordBtn');
     const recordLabel = document.getElementById('recordLabel');
+    const alertToggle = document.getElementById('alertToggle');
     const intercomBtn = document.getElementById('intercomBtn');
-    const intercomLabel = document.getElementById('intercomLabel');
-    const toast = document.getElementById('statusToast');
+    const micLabel = document.getElementById('micLabel');
 
     let mediaRecorder, recordedChunks = [];
     let isRecording = false;
+    let recordTimerInterval = null;
+    let recordSeconds = 0;
 
-    // Receive camera feed
+    // Incoming 30 FPS Stream
     socket.on('stream-feed', (data) => {
       feed.src = data.image;
     });
 
-    // Load QR pairing
+    // Pair QR Code
     fetch('/get-qr')
       .then(r => r.json())
       .then(d => {
@@ -452,64 +511,101 @@
       })
       .catch(e => console.error('QR fetch error:', e));
 
-    function notify(message, isError = false) {
-      toast.innerText = message;
+    // Sleek Notification Toast
+    function notify(text, isError = false) {
+      toast.innerText = text;
       toast.style.background = isError ? '#991b1b' : '#065f46';
       toast.style.color = '#ffffff';
       toast.style.display = 'block';
       setTimeout(() => { toast.style.display = 'none'; }, 4000);
     }
 
-    // Capture Snapshot
+    // Camera Hardware Commands
+    function sendCameraCmd(action) {
+      socket.emit('camera-control', { action });
+      notify(`Lens Command: ${action}`);
+    }
+
+    // Convert Base64 dataURL to binary Blob
+    function base64ToBlob(dataURI) {
+      const parts = dataURI.split(',');
+      const byteString = atob(parts[1]);
+      const mimeString = parts[0].split(':')[1].split(';')[0];
+      const buffer = new ArrayBuffer(byteString.length);
+      const uintArray = new Uint8Array(buffer);
+      for (let i = 0; i < byteString.length; i++) {
+        uintArray[i] = byteString.charCodeAt(i);
+      }
+      return new Blob([uintArray], { type: mimeString });
+    }
+
+    // Instant Snapshot Capture
     async function captureSnapshot() {
       if (!feed.src || !feed.src.startsWith('data:image')) {
         notify('Camera stream inactive', true);
         return;
       }
-      notify('Processing snapshot...');
+      notify('Capturing and uploading to Drive...');
       try {
-        const res = await fetch(feed.src);
-        const blob = await res.blob();
+        const blob = base64ToBlob(feed.src);
         await uploadToDrive(blob, `Snapshot_${Date.now()}.jpg`);
       } catch (err) {
-        notify('Capture failed: ' + err.message, true);
+        notify('Snapshot error: ' + err.message, true);
       }
     }
 
-    // Toggle Recording
+    // Video Recording Cycle
     function toggleRecording() {
       if (!isRecording) {
         if (!feed.src || !feed.src.startsWith('data:image')) {
-          notify('Camera stream inactive', true);
+          notify('Camera feed not available', true);
           return;
         }
 
         recordedChunks = [];
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const stream = canvas.captureStream(25);
+        const stream = canvas.captureStream(30);
+
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
 
         const drawLoop = setInterval(() => {
-          if (!isRecording) { clearInterval(drawLoop); return; }
-          canvas.width = feed.naturalWidth || 640;
-          canvas.height = feed.naturalHeight || 480;
+          if (!isRecording) {
+            clearInterval(drawLoop);
+            return;
+          }
+          canvas.width = feed.naturalWidth || 480;
+          canvas.height = feed.naturalHeight || 360;
           ctx.drawImage(feed, 0, 0);
-        }, 40);
+        }, 33);
 
-        mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+
         mediaRecorder.onstop = async () => {
           const blob = new Blob(recordedChunks, { type: 'video/webm' });
-          notify('Uploading clip to Drive...');
-          await uploadToDrive(blob, `Footage_${Date.now()}.webm`);
-          recordLabel.innerText = 'Start Recording';
+          notify('Uploading video to Google Drive...');
+          await uploadToDrive(blob, `Recording_${Date.now()}.webm`);
+          recordLabel.innerText = 'Record';
           recBadge.style.display = 'none';
+          clearInterval(recordTimerInterval);
         };
 
         mediaRecorder.start();
         isRecording = true;
-        recordLabel.innerText = 'Stop Recording';
+        recordLabel.innerText = 'Stop';
+        recordSeconds = 0;
+        recBadge.innerText = 'REC 00:00';
         recBadge.style.display = 'block';
+
+        recordTimerInterval = setInterval(() => {
+          recordSeconds++;
+          const mins = String(Math.floor(recordSeconds / 60)).padStart(2, '0');
+          const secs = String(recordSeconds % 60).padStart(2, '0');
+          recBadge.innerText = `REC ${mins}:${secs}`;
+        }, 1000);
+
         notify('Recording started');
       } else {
         mediaRecorder.stop();
@@ -517,62 +613,52 @@
       }
     }
 
-    // Upload to Google Drive API
+    // Upload Handler to Google Drive & Telegram
     async function uploadToDrive(blob, filename) {
       const formData = new FormData();
       formData.append('mediaFile', blob, filename);
+      const isAlertOn = alertToggle.checked;
 
-      const isAlertActive = alertToggle.checked;
       try {
-        const res = await fetch(`/upload-cloud?sendAlert=${isAlertActive}`, {
+        const res = await fetch(`/upload-cloud?sendAlert=${isAlertOn}`, {
           method: 'POST',
           body: formData
         });
-        const d = await res.json();
-        if (d.success) {
-          notify(`Uploaded: ${d.name}`);
+        const result = await res.json();
+        if (result.success) {
+          notify(`Uploaded: ${result.name}`);
         } else {
-          notify('Upload failed: ' + d.error, true);
+          notify(`Upload Error: ${result.error}`, true);
         }
-      } catch (err) {
-        notify('Network error: ' + err.message, true);
+      } catch (e) {
+        notify('Network transmission error', true);
       }
     }
 
-    // Two-Way Push-To-Talk Intercom
-    let micStream = null;
-    let micRecorder = null;
+    // Two-Way Intercom (Push to Talk)
+    let micStream, micRecorder;
 
-    async function startVoiceTransmission() {
+    async function startVoice() {
       try {
-        intercomBtn.classList.add('transmitting');
-        intercomLabel.innerText = 'Transmitting Voice...';
-
+        intercomBtn.classList.add('active-transmitting');
+        micLabel.innerText = 'Transmitting...';
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         micRecorder = new MediaRecorder(micStream);
         micRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            socket.emit('intercom-audio', e.data);
-          }
+          if (e.data.size > 0) socket.emit('intercom-audio', e.data);
         };
-        micRecorder.start(250);
+        micRecorder.start(200);
       } catch (err) {
-        console.error('Audio device access error:', err);
         notify('Microphone permission required', true);
-        endVoiceTransmission();
+        endVoice();
       }
     }
 
-    function endVoiceTransmission() {
-      intercomBtn.classList.remove('transmitting');
-      intercomLabel.innerText = 'Push to Talk';
-
-      if (micRecorder && micRecorder.state !== 'inactive') {
-        micRecorder.stop();
-      }
-      if (micStream) {
-        micStream.getTracks().forEach(t => t.stop());
-      }
+    function endVoice() {
+      intercomBtn.classList.remove('active-transmitting');
+      micLabel.innerText = 'Push to Talk';
+      if (micRecorder && micRecorder.state !== 'inactive') micRecorder.stop();
+      if (micStream) micStream.getTracks().forEach(track => track.stop());
     }
   </script>
 </body>
