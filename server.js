@@ -64,7 +64,8 @@ app.post('/upload-cloud', upload.single('mediaFile'), async (req, res) => {
     const uploaded = await drive.files.create({
       resource: fileMetadata,
       media: media,
-      fields: 'id, name, webViewLink'
+      fields: 'id, name, webViewLink',
+      supportsAllDrives: true
     });
 
     console.log(`[Google Drive Upload] Success: ${uploaded.data.name}`);
