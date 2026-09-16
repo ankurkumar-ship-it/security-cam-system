@@ -10,23 +10,30 @@ const { Readable } = require('stream');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  maxHttpBufferSize: 1e8 // Large video chunks ke liye buffer
+  maxHttpBufferSize: 1e8
 });
 
 const PORT = process.env.PORT || 3000;
 
-// Multer memory storage - files hard drive par nahi, seedhe RAM se Drive me upload hongi
+// Multer memory storage - Laptop hard drive par save kiye bina sidhe RAM se Drive upload
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Google Drive Authentication
-const auth = new google.auth.GoogleAuth({
-  keyFile: path.join(__dirname, 'cctv-credentials.json'),
-  scopes: ['https://www.googleapis.com/auth/drive'],
-});
-const drive = google.drive({ version: 'v3', auth });
+// =================== GOOGLE DRIVE OAUTH2 SETUP ===================
+const CLIENT_ID = '681737366833-06nb438brqc8ogckbktu9ef5d4fudquj.apps.googleusercontent.com';
+const CLIENT_SECRET = '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';
+const REDIRECT_URI = 'https://developers.google.com/oauthplayground';
 
-// YAHAN APNI GOOGLE DRIVE FOLDER ID PASTE KAREIN:
+// YAHAN APNA OAUTH PLAYGROUND SE MILA HUA REFRESH TOKEN PASTE KAREIN:
+const REFRESH_TOKEN = '1//04EkIlNvAQD3HCgYIARAAGAQSNwF-L9Iry6otqz3DkVgI8NOyAedjW7FOWDpEHIQVcg1qXj60mbGKUTSUYQNXS5X5ORvFIQLp1UQ';
+
+// AAPKI FOLDER ID (CCTV_Footage folder):
 const GOOGLE_DRIVE_FOLDER_ID = '1P5JEiCj-paiDQtv82CpkNc21u_gCCTcK';
+
+const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+oauth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
+
+const drive = google.drive({ version: 'v3', auth: oauth2Client });
+// =================================================================
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -44,7 +51,7 @@ app.get('/get-qr', async (req, res) => {
   }
 });
 
-// Google Drive Auto-Upload Route
+// Direct Cloud Upload Endpoint
 app.post('/upload-cloud', upload.single('mediaFile'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Koi file receive nahi hui' });
@@ -64,8 +71,7 @@ app.post('/upload-cloud', upload.single('mediaFile'), async (req, res) => {
     const uploaded = await drive.files.create({
       resource: fileMetadata,
       media: media,
-      fields: 'id, name, webViewLink',
-      supportsAllDrives: true
+      fields: 'id, name, webViewLink'
     });
 
     console.log(`[Google Drive Upload] Success: ${uploaded.data.name}`);
@@ -76,7 +82,7 @@ app.post('/upload-cloud', upload.single('mediaFile'), async (req, res) => {
   }
 });
 
-// Socket.io real-time streaming logic
+// Socket.io WebRTC / Realtime stream handling
 io.on('connection', (socket) => {
   socket.on('stream-data', (data) => {
     socket.broadcast.emit('stream-feed', data);
