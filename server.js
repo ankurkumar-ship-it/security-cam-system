@@ -6,6 +6,7 @@ const path = require('path');
 const { google } = require('googleapis');
 const multer = require('multer');
 const { Readable } = require('stream');
+const https = require('https');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,30 +15,33 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-
-// Multer memory storage - Laptop hard drive par save kiye bina sidhe RAM se Drive upload
 const upload = multer({ storage: multer.memoryStorage() });
 
-// =================== GOOGLE DRIVE OAUTH2 SETUP ===================
+// =================== GOOGLE DRIVE OAUTH2 ===================
 const CLIENT_ID = '681737366833-06nb438brqc8ogckbktu9ef5d4fudquj.apps.googleusercontent.com';
 const CLIENT_SECRET = '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';
 const REDIRECT_URI = 'https://developers.google.com/oauthplayground';
-
-// YAHAN APNA OAUTH PLAYGROUND SE MILA HUA REFRESH TOKEN PASTE KAREIN:
-const REFRESH_TOKEN = '1//04EkIlNvAQD3HCgYIARAAGAQSNwF-L9Iry6otqz3DkVgI8NOyAedjW7FOWDpEHIQVcg1qXj60mbGKUTSUYQNXS5X5ORvFIQLp1UQ';
-
-// AAPKI FOLDER ID (CCTV_Footage folder):
+const REFRESH_TOKEN = '1//04EkI1nVAQD3HCgYIARAAGAQSNwF-L9Iry6otqz3DkVgI8NOyAedjW7FOWdPEHIQVcg1qXj60mbGKUTSUYQNXS5X5ORvFIQLp1UQ';
 const GOOGLE_DRIVE_FOLDER_ID = '1P5JEiCj-paiDQtv82CpkNc21u_gCCTcK';
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 oauth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
-
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
-// =================================================================
+
+// =================== TELEGRAM BOT CONFIG ===================
+const TELEGRAM_BOT_TOKEN = '8718653987:AAHMc-KFEyIWkj0CD8Kg7uJ3D810CoAuOrI';
+const TELEGRAM_CHAT_ID = '8872756828';
+
+function sendTelegramNotification(text) {
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(text)}`;
+  https.get(url, (res) => {}).on('error', (e) => console.error('Telegram send error:', e.message));
+}
+// ==========================================================
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
-// QR Code endpoint
+// QR Code Endpoint
 app.get('/get-qr', async (req, res) => {
   const host = req.get('host');
   const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
@@ -51,11 +55,13 @@ app.get('/get-qr', async (req, res) => {
   }
 });
 
-// Direct Cloud Upload Endpoint
+// Drive Upload Endpoint
 app.post('/upload-cloud', upload.single('mediaFile'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Koi file receive nahi hui' });
   }
+
+  const sendAlert = req.query.sendAlert === 'true';
 
   try {
     const fileMetadata = {
@@ -74,22 +80,30 @@ app.post('/upload-cloud', upload.single('mediaFile'), async (req, res) => {
       fields: 'id, name, webViewLink'
     });
 
-    console.log(`[Google Drive Upload] Success: ${uploaded.data.name}`);
+    console.log(`[Drive Upload] Success: ${uploaded.data.name}`);
+
+    // Agar Telegram alert switch ON hai toh phone par alert bhejega
+    if (sendAlert) {
+      sendTelegramNotification(`🚨 CCTV Alert!\nFile Uploaded: ${uploaded.data.name}\nDrive Link: ${uploaded.data.webViewLink}`);
+    }
+
     res.json({ success: true, name: uploaded.data.name, link: uploaded.data.webViewLink });
   } catch (error) {
-    console.error('[Google Drive Upload] Failed:', error.message);
+    console.error('[Drive Upload] Failed:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Socket.io WebRTC / Realtime stream handling
+// Realtime Sockets: Two-Way Audio & Camera Stream
 io.on('connection', (socket) => {
+  // Mobile camera frame dashboard ko
   socket.on('stream-data', (data) => {
     socket.broadcast.emit('stream-feed', data);
   });
 
-  socket.on('control-command', (data) => {
-    socket.broadcast.emit('camera-action', data);
+  // Laptop Dashboard ka Mic Audio Mobile Speaker ko
+  socket.on('intercom-audio', (audioData) => {
+    socket.broadcast.emit('speaker-play', audioData);
   });
 
   socket.on('disconnect', () => {
