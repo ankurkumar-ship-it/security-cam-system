@@ -35,13 +35,13 @@ const TELEGRAM_CHAT_ID = '8872756828';
 
 function sendTelegram(text) {
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(text)}`;
-  https.get(url, () => {}).on('error', (e) => console.error('Telegram error:', e.message));
+  https.get(url, () => {}).on('error', (e) => console.error('Telegram dispatch error:', e.message));
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// QR Endpoint
+// Dynamic QR Code for Mobile Pairing
 app.get('/get-qr', async (req, res) => {
   const host = req.get('host');
   const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
@@ -51,17 +51,18 @@ app.get('/get-qr', async (req, res) => {
     const qrImage = await QRCode.toDataURL(mobileUrl);
     res.json({ url: mobileUrl, qr: qrImage });
   } catch (err) {
-    res.status(500).json({ error: 'QR Error' });
+    res.status(500).json({ error: 'QR Generation Error' });
   }
 });
 
-// Robust Upload Endpoint
+// Direct Cloud Upload Pipeline with Camera Tagging
 app.post('/upload-cloud', upload.single('mediaFile'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file received' });
   }
 
   const sendAlert = req.query.sendAlert === 'true';
+  const cameraLabel = req.query.cam || 'Cam_Main';
 
   try {
     const bufferStream = new Readable();
@@ -81,41 +82,52 @@ app.post('/upload-cloud', upload.single('mediaFile'), async (req, res) => {
       supportsAllDrives: true
     });
 
-    console.log(`[Upload Success] ${uploaded.data.name}`);
+    console.log(`[Upload Success] Source: ${cameraLabel} | File: ${uploaded.data.name}`);
 
     if (sendAlert) {
-      sendTelegram(`Security Alert: New file uploaded.\nName: ${uploaded.data.name}\nView: ${uploaded.data.webViewLink}`);
+      sendTelegram(`Security Alert: [${cameraLabel}]\nFile: ${uploaded.data.name}\nGoogle Drive: ${uploaded.data.webViewLink}`);
     }
 
     res.json({ success: true, name: uploaded.data.name, link: uploaded.data.webViewLink });
   } catch (error) {
-    console.error('[Upload Failed]', error.message);
+    console.error('[Upload Error]:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Sockets
+// 5-Node Socket Routing
 io.on('connection', (socket) => {
-  // Fast Stream forward
-  socket.on('stream-data', (data) => {
-    socket.broadcast.emit('stream-feed', data);
+  // Mobile node registration
+  socket.on('register-camera', (camId) => {
+    socket.join(camId);
+    socket.camId = camId;
+    io.emit('camera-status-update', { camId: camId, status: 'online' });
   });
 
-  // Controls (Flash, Flip Camera)
-  socket.on('camera-control', (command) => {
-    socket.broadcast.emit('apply-camera-control', command);
+  // Camera video frame routed to dashboard
+  socket.on('stream-frame', (data) => {
+    socket.broadcast.emit('dashboard-frame', data);
   });
 
-  // Audio intercom
-  socket.on('intercom-audio', (audio) => {
-    socket.broadcast.emit('speaker-play', audio);
+  // Targeted hardware commands (Flip, Flash) sent to specific camera
+  socket.on('control-command', (data) => {
+    // data: { targetCam: 'cam-1', action: 'flip' | 'torch' }
+    io.to(data.targetCam).emit('execute-command', data.action);
+  });
+
+  // Targeted two-way intercom audio
+  socket.on('intercom-audio-packet', (data) => {
+    // data: { targetCam: 'cam-1', audio: buffer }
+    io.to(data.targetCam).emit('speaker-output', data.audio);
   });
 
   socket.on('disconnect', () => {
-    io.emit('camera-status', { id: socket.id, status: 'offline' });
+    if (socket.camId) {
+      io.emit('camera-status-update', { camId: socket.camId, status: 'offline' });
+    }
   });
 });
 
 server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`Surveillance Master Controller running on port ${PORT}`);
 });
