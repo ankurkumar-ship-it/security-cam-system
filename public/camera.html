@@ -2,210 +2,182 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Camera Node Client</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Transmitter</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #030712;
-      color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      min-height: 100vh;
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 24px 16px;
-    }
-    .header {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .header h2 {
-      font-size: 18px;
-      font-weight: 700;
-      color: #f1f5f9;
-    }
-    .header p {
-      font-size: 13px;
-      color: #94a3b8;
-      margin-top: 4px;
-    }
-    .viewport-box {
-      width: 100%;
-      max-width: 360px;
-      aspect-ratio: 3/4;
-      background: #0f172a;
-      border-radius: 16px;
+      justify-content: space-between;
+      height: 100vh;
       overflow: hidden;
-      border: 1px solid #1e293b;
-      position: relative;
     }
     video {
+      position: absolute;
       width: 100%;
       height: 100%;
       object-fit: cover;
+      z-index: 1;
     }
-    .badge-status {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(8px);
-      padding: 4px 10px;
+    .overlay {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+    }
+    .badge {
+      padding: 6px 12px;
       border-radius: 20px;
       font-size: 12px;
-      font-weight: 600;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-weight: bold;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid #10b981;
+      color: #34d399;
     }
-    .btn-main {
-      width: 100%;
-      max-width: 360px;
-      margin-top: 20px;
-      padding: 14px;
-      background: #2563eb;
-      color: #ffffff;
-      border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
+    .actions {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+    .action-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(15, 23, 42, 0.7);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      transition: background 0.2s ease;
-    }
-    .btn-main:active {
-      background: #1d4ed8;
-    }
-    .status-msg {
-      margin-top: 14px;
-      font-size: 12px;
-      color: #64748b;
-      text-align: center;
+      backdrop-filter: blur(8px);
     }
   </style>
 </head>
 <body>
 
-  <div class="header">
-    <h2>Camera Node Client</h2>
-    <p id="subStatus">Ready to initialize stream</p>
+  <div class="overlay">
+    <div class="badge" id="connStatus">Transmitting</div>
   </div>
 
-  <div class="viewport-box">
-    <div id="statusBadge" class="badge-status" style="color: #ef4444;">● Offline</div>
-    <video id="streamPreview" autoplay playsinline muted></video>
+  <video id="webcam" autoplay playsinline muted></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <div class="actions">
+    <!-- Flip Camera Button -->
+    <button class="action-btn" onclick="toggleCameraFacing()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 2.21 1.005 4.21 2.618 5.567L4 20h6v-6l-2.45 2.45C6.012 15.228 5 13.728 5 12c0-3.866 3.134-7 7-7s7 3.134 7 7c0 1.728-1.012 3.228-2.55 4.45L14 14v6h6l-2.618-2.433C18.995 16.21 20 14.21 20 12z"/>
+      </svg>
+    </button>
+
+    <!-- Torch Toggle Button -->
+    <button class="action-btn" id="torchBtn" onclick="toggleTorch()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+    </button>
   </div>
-
-  <button id="broadcastBtn" class="btn-main">Start Camera</button>
-  <div id="footerNotice" class="status-msg">Allow camera access when prompted.</div>
-
-  <canvas id="offscreenCanvas" style="display:none;"></canvas>
 
   <script>
     const socket = io();
-    const streamPreview = document.getElementById('streamPreview');
-    const broadcastBtn = document.getElementById('broadcastBtn');
-    const statusBadge = document.getElementById('statusBadge');
-    const subStatus = document.getElementById('subStatus');
-    const footerNotice = document.getElementById('footerNotice');
-    const offscreenCanvas = document.getElementById('offscreenCanvas');
-    const ctx = offscreenCanvas.getContext('2d');
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
 
-    let nodeId = localStorage.getItem('assigned_cam_id');
-    if (!nodeId) {
-      nodeId = 'NODE-' + Math.floor(100 + Math.random() * 900);
-      localStorage.setItem('assigned_cam_id', nodeId);
-    }
-
-    let facingMode = 'environment';
     let currentStream = null;
-    let currentTrack = null;
-    let broadcasting = false;
+    let usingFrontCamera = false;
     let torchActive = false;
+    let videoTrack = null;
 
-    async function initializeCamera() {
+    async function initCamera() {
       if (currentStream) {
         currentStream.getTracks().forEach(t => t.stop());
       }
 
+      const constraints = {
+        video: {
+          facingMode: usingFrontCamera ? 'user' : 'environment',
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 30, max: 30 }
+        },
+        audio: false
+      };
+
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: facingMode,
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
-        });
-
-        currentStream = stream;
-        streamPreview.srcObject = stream;
-        currentTrack = stream.getVideoTracks()[0];
-
-        if (!broadcasting) {
-          socket.emit('register-camera', nodeId);
-          statusBadge.innerText = `● LIVE (${nodeId})`;
-          statusBadge.style.color = '#22c55e';
-          broadcastBtn.style.display = 'none';
-          subStatus.innerText = `Broadcasting as ${nodeId}`;
-          footerNotice.innerText = 'Keep this browser tab active';
-          broadcasting = true;
-
-    setInterval(() => {
-       if (!streamPreview.videoWidth) return;
-
-       // Resolution ko 640x480 karein (Clear picture + smooth balance)
-       offscreenCanvas.width = 640;
-       offscreenCanvas.height = 480;
-       ctx.drawImage(streamPreview, 0, 0, 640, 480);
-
-       // Quality ko 0.35 se badhakar 0.65 karein (Dhundhlapan bilkul khatam ho jayega)
-       const encodedFrame = offscreenCanvas.toDataURL('image/jpeg', 0.65);
-       socket.emit('stream-data', { camId: nodeId, image: encodedFrame });
-    }, 120);
-        }
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = currentStream;
+        videoTrack = currentStream.getVideoTracks()[0];
       } catch (err) {
-        alert('Camera initialization failed: ' + err.message);
+        console.error('Camera Init Error:', err);
       }
     }
 
-    broadcastBtn.onclick = initializeCamera;
+    function toggleCameraFacing() {
+      usingFrontCamera = !usingFrontCamera;
+      initCamera();
+    }
 
-    socket.on('execute-command', async (cmd) => {
-      if (cmd.camId !== nodeId) return;
-
-      if (cmd.action === 'flip') {
-        facingMode = (facingMode === 'environment') ? 'user' : 'environment';
-        await initializeCamera();
-      }
-
-      if (cmd.action === 'torch' && currentTrack) {
-        try {
+    async function toggleTorch() {
+      if (!videoTrack) return;
+      try {
+        const capabilities = videoTrack.getCapabilities();
+        if (capabilities.torch) {
           torchActive = !torchActive;
-          await currentTrack.applyConstraints({
+          await videoTrack.applyConstraints({
             advanced: [{ torch: torchActive }]
           });
-        } catch (e) {
-          console.warn('Torch control not supported on this lens.');
+        } else {
+          alert('Torch not supported on this lens');
         }
+      } catch (e) {
+        console.error('Torch error:', e);
       }
+    }
+
+    // High Speed Low Latency Stream Loop (~30 FPS)
+    video.addEventListener('play', () => {
+      canvas.width = 480;
+      canvas.height = 360;
+
+      setInterval(() => {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const frame = canvas.toDataURL('image/jpeg', 0.45); // Optimized quality for fast transfer
+          socket.emit('stream-data', { image: frame });
+        }
+      }, 33); // 33ms = 30 FPS smooth live stream
     });
-    // Screen ko automatically lock/dim hone se rokne ke liye
-    if ('wakeLock' in navigator) {
-      navigator.wakeLock.request('screen').catch((err) => {
-      console.log('WakeLock error:', err);
-   });
- }
-    // Laptop se aayi awaaz ko mobile ke speaker par chalana
-socket.on('speaker-play', async (audioChunk) => {
-  const blob = new Blob([audioChunk], { type: 'audio/webm' });
-  const audioUrl = URL.createObjectURL(blob);
-  const audio = new Audio(audioUrl);
-  try {
-    await audio.play();
-  } catch (e) {
-    console.log('Audio autoplay policy wait:', e);
-  }
-});
+
+    // Remote commands from dashboard
+    socket.on('apply-camera-control', (command) => {
+      if (command.action === 'flip') toggleCameraFacing();
+      if (command.action === 'torch') toggleTorch();
+    });
+
+    // Speaker receive
+    socket.on('speaker-play', async (audioChunk) => {
+      const blob = new Blob([audioChunk], { type: 'audio/webm' });
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      try { await audio.play(); } catch (e) {}
+    });
+
+    initCamera();
   </script>
 </body>
 </html>
