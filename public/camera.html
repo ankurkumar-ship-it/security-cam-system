@@ -195,6 +195,17 @@
       console.log('WakeLock error:', err);
    });
  }
+    // Laptop se aayi awaaz ko mobile ke speaker par chalana
+socket.on('speaker-play', async (audioChunk) => {
+  const blob = new Blob([audioChunk], { type: 'audio/webm' });
+  const audioUrl = URL.createObjectURL(blob);
+  const audio = new Audio(audioUrl);
+  try {
+    await audio.play();
+  } catch (e) {
+    console.log('Audio autoplay policy wait:', e);
+  }
+});
   </script>
 </body>
 </html>
