@@ -1,35 +1,36 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const os = require('os');
 const QRCode = require('qrcode');
+const path = require('path');
+const { google } = require('googleapis');
+const multer = require('multer');
+const { Readable } = require('stream');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" }
+  maxHttpBufferSize: 1e8 // Large video chunks ke liye buffer
 });
 
-// public folder ki files ko web par dikhane ke liye
-app.use(express.static('public'));
+const PORT = process.env.PORT || 3000;
 
-// Computer ka Local Wi-Fi IP nikalne ka function
-function getLocalIP() {
-  const interfaces = os.networkInterfaces();
-  for (let name in interfaces) {
-    for (let iface of interfaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
-      }
-    }
-  }
-  return 'localhost';
-}
+// Multer memory storage - files hard drive par nahi, seedhe RAM se Drive me upload hongi
+const upload = multer({ storage: multer.memoryStorage() });
 
-const LOCAL_IP = getLocalIP();
-const PORT = 3000;
+// Google Drive Authentication
+const auth = new google.auth.GoogleAuth({
+  keyFile: path.join(__dirname, 'cctv-credentials.json'),
+  scopes: ['https://www.googleapis.com/auth/drive'],
+});
+const drive = google.drive({ version: 'v3', auth });
 
-// QR Code aur Mobile URL provide karne ke liye API
+// YAHAN APNI GOOGLE DRIVE FOLDER ID PASTE KAREIN:
+const GOOGLE_DRIVE_FOLDER_ID = 'https://drive.google.com/drive/u/0/folders/1P5JEiCj-paiDQtv82CpkNc21u_gCCTcK';
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+// QR Code endpoint
 app.get('/get-qr', async (req, res) => {
   const host = req.get('host');
   const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
@@ -43,41 +44,52 @@ app.get('/get-qr', async (req, res) => {
   }
 });
 
-// Real-time Communication (Socket.io)
+// Google Drive Auto-Upload Route
+app.post('/upload-cloud', upload.single('mediaFile'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Koi file receive nahi hui' });
+  }
+
+  try {
+    const fileMetadata = {
+      name: req.file.originalname,
+      parents: [GOOGLE_DRIVE_FOLDER_ID]
+    };
+
+    const media = {
+      mimeType: req.file.mimetype,
+      body: Readable.from(req.file.buffer)
+    };
+
+    const uploaded = await drive.files.create({
+      resource: fileMetadata,
+      media: media,
+      fields: 'id, name, webViewLink'
+    });
+
+    console.log(`[Google Drive Upload] Success: ${uploaded.data.name}`);
+    res.json({ success: true, name: uploaded.data.name, link: uploaded.data.webViewLink });
+  } catch (error) {
+    console.error('[Google Drive Upload] Failed:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Socket.io real-time streaming logic
 io.on('connection', (socket) => {
-  console.log('Naya device connect hua:', socket.id);
-
-  // Mobile camera identify hone par
-  socket.on('register-camera', (camId) => {
-    socket.camId = camId;
-    console.log(`Camera active: ${camId}`);
-    io.emit('camera-status', { id: camId, status: 'connected' });
-  });
-
-  // Mobile camera se aane wala video frame dashboard ko bhejna
   socket.on('stream-data', (data) => {
     socket.broadcast.emit('stream-feed', data);
   });
 
-  // Dashboard se commands (Torch, Camera Flip) mobile ko bhejna
-  socket.on('control-command', (command) => {
-    socket.broadcast.emit('execute-command', command);
+  socket.on('control-command', (data) => {
+    socket.broadcast.emit('camera-action', data);
   });
 
-  // Mobile disconnect hone par
   socket.on('disconnect', () => {
-    if (socket.camId) {
-      console.log(`Camera disconnect hua: ${socket.camId}`);
-      io.emit('camera-status', { id: socket.camId, status: 'disconnected' });
-    }
+    io.emit('camera-status', { id: socket.id, status: 'disconnected' });
   });
 });
 
-// Server chalu karein
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n==================================================`);
-  console.log(`🚀 System Chalu Ho Gaya Hai!`);
-  console.log(`💻 PC Dashboard (Admin):  http://localhost:${PORT}`);
-  console.log(`📱 Mobile Camera Link:   http://${LOCAL_IP}:${PORT}/camera.html`);
-  console.log(`==================================================\n`);
+server.listen(PORT, () => {
+  console.log(`Surveillance Server running on port ${PORT}`);
 });
