@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>5-Channel Surveillance Matrix</title>
+  <title>5-Channel Surveillance Matrix | IP Director</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     :root {
@@ -15,6 +15,7 @@
       --accent-blue-hover: #1d4ed8;
       --accent-red: #dc2626;
       --accent-red-hover: #b91c1c;
+      --accent-green: #059669;
       --accent-amber: #d97706;
       --text-high: #f8fafc;
       --text-muted: #94a3b8;
@@ -37,66 +38,61 @@
     .dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; }
 
     .matrix-workspace {
-      flex: 1; display: grid; grid-template-columns: 1fr 320px; gap: 20px;
-      padding: 20px; max-width: 1600px; margin: 0 auto; width: 100%;
+      flex: 1; display: grid; grid-template-columns: 1fr 340px; gap: 20px;
+      padding: 20px; max-width: 1650px; margin: 0 auto; width: 100%;
     }
 
-    @media (max-width: 1100px) {
+    @media (max-width: 1150px) {
       .matrix-workspace { grid-template-columns: 1fr; }
     }
 
-    /* 5-Camera Grid */
+    /* 5-Channel Grid */
     .grid-container {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 14px;
-      transition: all 0.3s ease;
     }
 
-    @media (max-width: 800px) {
-      .grid-container { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 850px) {
+      .grid-container { grid-template-columns: 1fr; }
+    }
+
+    .cam-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-line);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     .cam-box {
-      position: relative; background: #000; border-radius: 8px;
-      aspect-ratio: 16/9; overflow: hidden; border: 2px solid var(--border-line);
-      cursor: pointer; transition: transform 0.2s, border-color 0.2s; display: flex; align-items: center; justify-content: center;
+      position: relative; background: #000;
+      aspect-ratio: 16/9; overflow: hidden;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      border: 2px solid transparent;
     }
 
-    .cam-box.active {
+    .cam-card.active .cam-box {
       border-color: var(--accent-blue);
       box-shadow: 0 0 14px rgba(37, 99, 235, 0.5);
     }
 
-    /* Fullscreen Maximize Mode */
-    .cam-box.maximized {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      right: 20px;
-      bottom: 20px;
-      width: calc(100vw - 40px) !important;
-      height: calc(100vh - 40px) !important;
-      aspect-ratio: unset;
-      z-index: 9999;
-      box-shadow: 0 0 40px rgba(0, 0, 0, 0.95);
+    /* Maximize Modal View */
+    .cam-card.maximized {
+      position: fixed; top: 20px; left: 20px; right: 20px; bottom: 20px;
+      width: calc(100vw - 40px); height: calc(100vh - 40px);
+      z-index: 9999; box-shadow: 0 0 50px rgba(0,0,0,0.95);
       border-color: var(--accent-blue);
     }
+    .cam-card.maximized .cam-box { aspect-ratio: unset; flex: 1; }
 
-    .cam-box img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      background: #000;
-    }
-
-    .cam-box img:not([src]) {
-      display: none;
-    }
+    .cam-box img { width: 100%; height: 100%; object-fit: contain; background: #000; }
+    .cam-box img:not([src]) { display: none; }
 
     .cam-tag {
       position: absolute; top: 10px; left: 10px; z-index: 5;
-      background: rgba(0, 0, 0, 0.7); padding: 3px 8px; border-radius: 4px;
+      background: rgba(0, 0, 0, 0.75); padding: 3px 8px; border-radius: 4px;
       font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
       border: 1px solid rgba(255, 255, 255, 0.15); display: flex; align-items: center; gap: 6px;
     }
@@ -106,11 +102,10 @@
 
     .expand-btn {
       position: absolute; bottom: 10px; right: 10px; z-index: 6;
-      background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.65); border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 4px; padding: 4px; display: flex; align-items: center; justify-content: center;
-      color: #fff; cursor: pointer; transition: 0.2s;
+      color: #fff; cursor: pointer;
     }
-    .expand-btn:hover { background: var(--accent-blue); }
 
     .rec-indicator {
       display: none; position: absolute; top: 10px; right: 10px; z-index: 5;
@@ -118,15 +113,34 @@
       border-radius: 4px; font-size: 10px; font-weight: 800;
     }
 
+    /* IP Connect Bar Below Video Box */
+    .ip-bar {
+      padding: 8px 10px;
+      background: #0d1320;
+      border-top: 1px solid var(--border-line);
+      display: flex;
+      gap: 6px;
+    }
+
+    .ip-input {
+      flex: 1; background: #151d2c; border: 1px solid var(--border-line);
+      color: #fff; padding: 6px 8px; border-radius: 4px; font-size: 11px; outline: none;
+    }
+    .ip-input:focus { border-color: var(--accent-blue); }
+
+    .ip-btn {
+      background: var(--bg-card); border: 1px solid var(--border-line); color: var(--text-high);
+      padding: 6px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+    .ip-btn:hover { background: #1e293b; }
+
     /* Control Deck */
     .control-deck {
       margin-top: 14px; background: var(--bg-panel); border: 1px solid var(--border-line);
       border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px;
     }
 
-    .control-header {
-      display: flex; justify-content: space-between; align-items: center; font-size: 13px;
-    }
+    .control-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
     .active-cam-title { font-weight: 700; color: #60a5fa; }
 
     .actions-grid {
@@ -175,9 +189,8 @@
     input:checked + .slider { background: var(--accent-blue); }
     input:checked + .slider:before { transform: translateX(20px); }
 
-    .qr-center { text-align: center; }
-    .qr-center img { width: 130px; height: 130px; background: white; padding: 6px; border-radius: 6px; margin: 6px auto 10px; display: block; }
-    .qr-center p { font-size: 12px; color: var(--text-muted); }
+    .help-list { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+    .help-list code { background: #1e293b; padding: 2px 5px; border-radius: 4px; color: #93c5fd; }
 
     #toast {
       position: fixed; bottom: 20px; right: 20px; padding: 10px 18px;
@@ -194,75 +207,107 @@
         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
         <circle cx="12" cy="13" r="4"></circle>
       </svg>
-      <span>5-Channel Surveillance Command</span>
+      <span>5-Channel IP Surveillance Controller</span>
     </div>
     <div class="status-pill">
       <span class="dot"></span>
-      <span>Host Active</span>
+      <span>Direct Network Active</span>
     </div>
   </header>
 
   <div class="matrix-workspace">
 
     <div>
-      <!-- 5 Video Channel Matrix -->
+      <!-- 5-Channel Video Matrix with Direct IP Inputs -->
       <div class="grid-container">
-        <!-- Cam 1 -->
-        <div class="cam-box active" id="box-cam-1" onclick="selectCamera('cam-1', 'Camera 01')" ondblclick="toggleMaximize('cam-1')">
-          <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-1"></span>CAM 01</div>
-          <div class="rec-indicator" id="rec-cam-1">REC</div>
-          <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-1');">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-          </button>
-          <img id="feed-cam-1" />
+
+        <!-- CAM 01 -->
+        <div class="cam-card active" id="card-cam-1">
+          <div class="cam-box" onclick="selectCamera('cam-1', 'Camera 01')" ondblclick="toggleMaximize('cam-1')">
+            <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-1"></span>CAM 01</div>
+            <div class="rec-indicator" id="rec-cam-1">REC</div>
+            <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-1');">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+            <img id="feed-cam-1" />
+          </div>
+          <div class="ip-bar">
+            <input type="text" class="ip-input" id="ip-cam-1" placeholder="IP Address e.g. 192.168.1.15:8080" />
+            <button class="ip-btn" onclick="connectIP('cam-1')">Connect</button>
+          </div>
         </div>
 
-        <!-- Cam 2 -->
-        <div class="cam-box" id="box-cam-2" onclick="selectCamera('cam-2', 'Camera 02')" ondblclick="toggleMaximize('cam-2')">
-          <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-2"></span>CAM 02</div>
-          <div class="rec-indicator" id="rec-cam-2">REC</div>
-          <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-2');">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-          </button>
-          <img id="feed-cam-2" />
+        <!-- CAM 02 -->
+        <div class="cam-card" id="card-cam-2">
+          <div class="cam-box" onclick="selectCamera('cam-2', 'Camera 02')" ondblclick="toggleMaximize('cam-2')">
+            <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-2"></span>CAM 02</div>
+            <div class="rec-indicator" id="rec-cam-2">REC</div>
+            <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-2');">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+            <img id="feed-cam-2" />
+          </div>
+          <div class="ip-bar">
+            <input type="text" class="ip-input" id="ip-cam-2" placeholder="IP Address e.g. 192.168.1.16:8080" />
+            <button class="ip-btn" onclick="connectIP('cam-2')">Connect</button>
+          </div>
         </div>
 
-        <!-- Cam 3 -->
-        <div class="cam-box" id="box-cam-3" onclick="selectCamera('cam-3', 'Camera 03')" ondblclick="toggleMaximize('cam-3')">
-          <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-3"></span>CAM 03</div>
-          <div class="rec-indicator" id="rec-cam-3">REC</div>
-          <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-3');">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-          </button>
-          <img id="feed-cam-3" />
+        <!-- CAM 03 -->
+        <div class="cam-card" id="card-cam-3">
+          <div class="cam-box" onclick="selectCamera('cam-3', 'Camera 03')" ondblclick="toggleMaximize('cam-3')">
+            <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-3"></span>CAM 03</div>
+            <div class="rec-indicator" id="rec-cam-3">REC</div>
+            <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-3');">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+            <img id="feed-cam-3" />
+          </div>
+          <div class="ip-bar">
+            <input type="text" class="ip-input" id="ip-cam-3" placeholder="IP Address e.g. 192.168.1.17:8080" />
+            <button class="ip-btn" onclick="connectIP('cam-3')">Connect</button>
+          </div>
         </div>
 
-        <!-- Cam 4 -->
-        <div class="cam-box" id="box-cam-4" onclick="selectCamera('cam-4', 'Camera 04')" ondblclick="toggleMaximize('cam-4')">
-          <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-4"></span>CAM 04</div>
-          <div class="rec-indicator" id="rec-cam-4">REC</div>
-          <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-4');">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-          </button>
-          <img id="feed-cam-4" />
+        <!-- CAM 04 -->
+        <div class="cam-card" id="card-cam-4">
+          <div class="cam-box" onclick="selectCamera('cam-4', 'Camera 04')" ondblclick="toggleMaximize('cam-4')">
+            <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-4"></span>CAM 04</div>
+            <div class="rec-indicator" id="rec-cam-4">REC</div>
+            <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-4');">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+            <img id="feed-cam-4" />
+          </div>
+          <div class="ip-bar">
+            <input type="text" class="ip-input" id="ip-cam-4" placeholder="IP Address e.g. 192.168.1.18:8080" />
+            <button class="ip-btn" onclick="connectIP('cam-4')">Connect</button>
+          </div>
         </div>
 
-        <!-- Cam 5 -->
-        <div class="cam-box" id="box-cam-5" onclick="selectCamera('cam-5', 'Camera 05')" ondblclick="toggleMaximize('cam-5')">
-          <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-5"></span>CAM 05</div>
-          <div class="rec-indicator" id="rec-cam-5">REC</div>
-          <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-5');">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-          </button>
-          <img id="feed-cam-5" />
+        <!-- CAM 05 -->
+        <div class="cam-card" id="card-cam-5">
+          <div class="cam-box" onclick="selectCamera('cam-5', 'Camera 05')" ondblclick="toggleMaximize('cam-5')">
+            <div class="cam-tag"><span class="cam-status-dot" id="dot-cam-5"></span>CAM 05</div>
+            <div class="rec-indicator" id="rec-cam-5">REC</div>
+            <button class="expand-btn" onclick="event.stopPropagation(); toggleMaximize('cam-5');">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+            <img id="feed-cam-5" />
+          </div>
+          <div class="ip-bar">
+            <input type="text" class="ip-input" id="ip-cam-5" placeholder="IP Address e.g. 192.168.1.19:8080" />
+            <button class="ip-btn" onclick="connectIP('cam-5')">Connect</button>
+          </div>
         </div>
+
       </div>
 
-      <!-- Action Panel for Selected Camera -->
+      <!-- Control Deck -->
       <div class="control-deck">
         <div class="control-header">
-          <span>Active Transmitter: <span class="active-cam-title" id="selectedCamTitle">Camera 01</span></span>
-          <span style="font-size: 11px; color: var(--text-muted);">Double-click camera or click expand icon for Big Screen</span>
+          <span>Target Device: <span class="active-cam-title" id="selectedCamTitle">Camera 01</span></span>
+          <span style="font-size: 11px; color: var(--text-muted);">Double-click camera screen to expand</span>
         </div>
 
         <div class="actions-grid">
@@ -295,21 +340,11 @@
             </svg>
             <span>Flashlight</span>
           </button>
-
-          <button id="intercomBtn" class="btn btn-dark"
-                  onmousedown="startVoice()" onmouseup="stopVoice()"
-                  ontouchstart="startVoice()" ontouchend="stopVoice()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-            </svg>
-            <span id="micLabel">Intercom</span>
-          </button>
         </div>
       </div>
     </div>
 
-    <!-- Right Sidebar -->
+    <!-- Sidebar -->
     <aside class="sidebar">
       <div class="panel">
         <div class="panel-label">Telegram Notifications</div>
@@ -325,10 +360,14 @@
         </div>
       </div>
 
-      <div class="panel qr-center">
-        <div class="panel-label">Transmitter Pairing</div>
-        <img id="qrElement" alt="QR" />
-        <p>Scan with any of your phones to connect as camera source.</p>
+      <div class="panel">
+        <div class="panel-label">IP Camera Instructions</div>
+        <div class="help-list">
+          <p>1. Mobile me free <b>IP Webcam</b> app install karein.</p>
+          <p>2. App me sabse niche <b>"Start Server"</b> dabayein.</p>
+          <p>3. Screen par jo address dikhe (e.g. <code>192.168.1.15:8080</code>) use Cam box me daal kar <b>Connect</b> karein.</p>
+          <p>4. Mobile par koi browser ya link kholne ki zarurat nahi padegi!</p>
+        </div>
       </div>
     </aside>
 
@@ -341,14 +380,13 @@
     const alertToggle = document.getElementById('alertToggle');
     const toast = document.getElementById('toast');
     const recLabel = document.getElementById('recLabel');
-    const intercomBtn = document.getElementById('intercomBtn');
-    const micLabel = document.getElementById('micLabel');
 
     let activeCam = 'cam-1';
     let activeTitle = 'Camera 01';
     let isRecording = false;
     let mediaRecorder = null;
     let recordedChunks = [];
+    let ipStorage = {};
 
     function notify(text, isError = false) {
       toast.innerText = text;
@@ -358,101 +396,148 @@
       setTimeout(() => { toast.style.display = 'none'; }, 3500);
     }
 
-    // QR loader
-    fetch('/get-qr').then(r => r.json()).then(d => {
-      document.getElementById('qrElement').src = d.qr;
+    // Load saved IPs from localStorage
+    window.addEventListener('DOMContentLoaded', () => {
+      ['cam-1', 'cam-2', 'cam-3', 'cam-4', 'cam-5'].forEach(id => {
+        const saved = localStorage.getItem(`ip_${id}`);
+        if (saved) {
+          document.getElementById(`ip-${id}`).value = saved;
+          connectIP(id, false);
+        }
+      });
     });
 
-    // Receive Multi-Grid Stream
+    // Direct IP Connect logic (Fetches MJPEG Video Stream)
+    function connectIP(camId, showToast = true) {
+      let rawIp = document.getElementById(`ip-${camId}`).value.trim();
+      if (!rawIp) return;
+
+      if (!rawIp.startsWith('http://') && !rawIp.startsWith('https://')) {
+        rawIp = 'http://' + rawIp;
+      }
+
+      // IP Webcam standard MJPEG video endpoint: /video
+      const streamUrl = rawIp.endsWith('/video') ? rawIp : `${rawIp}/video`;
+      
+      const feed = document.getElementById(`feed-${camId}`);
+      feed.crossOrigin = "anonymous";
+      feed.src = streamUrl;
+
+      ipStorage[camId] = rawIp.replace('/video', '');
+      localStorage.setItem(`ip_${camId}`, rawIp.replace('/video', ''));
+
+      const dot = document.getElementById(`dot-${camId}`);
+      if (dot) dot.classList.add('online');
+
+      if (showToast) notify(`Connecting ${camId.toUpperCase()} to ${rawIp}...`);
+    }
+
+    // Socket Frame Receiver (Fallback for browser transmitter)
     socket.on('dashboard-frame', (data) => {
       const feedImg = document.getElementById(`feed-${data.camId}`);
-      if (feedImg) {
+      // Only use socket frame if direct IP is not set
+      if (feedImg && !ipStorage[data.camId]) {
         feedImg.src = data.image;
         const dot = document.getElementById(`dot-${data.camId}`);
         if (dot) dot.classList.add('online');
       }
     });
 
-    // Camera Status Indicator
-    socket.on('camera-status-update', (data) => {
-      const dot = document.getElementById(`dot-${data.camId}`);
-      if (dot) {
-        if (data.status === 'online') dot.classList.add('online');
-        else dot.classList.remove('online');
-      }
-    });
-
-    // Active Selection
+    // Active Camera Select
     function selectCamera(camId, title) {
-      document.querySelectorAll('.cam-box').forEach(b => b.classList.remove('active'));
-      document.getElementById(`box-${camId}`).classList.add('active');
+      document.querySelectorAll('.cam-card').forEach(b => b.classList.remove('active'));
+      document.getElementById(`card-${camId}`).classList.add('active');
       activeCam = camId;
       activeTitle = title;
       document.getElementById('selectedCamTitle').innerText = title;
     }
 
-    // Toggle Screen Maximize (Bada Screen)
+    // Maximize / Minimize
     function toggleMaximize(camId) {
-      const box = document.getElementById(`box-${camId}`);
-      box.classList.toggle('maximized');
+      const card = document.getElementById(`card-${camId}`);
+      card.classList.toggle('maximized');
     }
 
-    // ESC key closes maximized camera
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        document.querySelectorAll('.cam-box.maximized').forEach(b => b.classList.remove('maximized'));
+        document.querySelectorAll('.cam-card.maximized').forEach(b => b.classList.remove('maximized'));
       }
     });
 
-    function sendTargetCmd(action) {
-      socket.emit('control-command', { targetCam: activeCam, action: action });
-      notify(`${activeTitle}: Sent ${action}`);
-    }
+    // Hardware Control over IP Webcam API or Socket
+    let torchStates = {};
+    let lensStates = {};
 
-    function base64ToBlob(dataURI) {
-      const parts = dataURI.split(',');
-      const byteString = atob(parts[1]);
-      const mimeString = parts[0].split(':')[1].split(';')[0];
-      const buffer = new ArrayBuffer(byteString.length);
-      const uintArray = new Uint8Array(buffer);
-      for (let i = 0; i < byteString.length; i++) {
-        uintArray[i] = byteString.charCodeAt(i);
+    function sendTargetCmd(action) {
+      const targetBaseUrl = ipStorage[activeCam];
+
+      if (targetBaseUrl) {
+        // Direct IP Webcam HTTP API Commands
+        if (action === 'torch') {
+          torchStates[activeCam] = !torchStates[activeCam];
+          const cmd = torchStates[activeCam] ? '/enabletorch' : '/disabletorch';
+          fetch(`${targetBaseUrl}${cmd}`, { mode: 'no-cors' }).catch(() => {});
+          notify(`${activeTitle}: Flashlight ${torchStates[activeCam] ? 'ON' : 'OFF'}`);
+        } else if (action === 'flip') {
+          lensStates[activeCam] = !lensStates[activeCam];
+          const val = lensStates[activeCam] ? 'on' : 'off';
+          fetch(`${targetBaseUrl}/settings/ffc?set=${val}`, { mode: 'no-cors' }).catch(() => {});
+          notify(`${activeTitle}: Flipped Lens`);
+        }
+      } else {
+        // Fallback to Socket.io for web transmitter
+        socket.emit('control-command', { targetCam: activeCam, action: action });
+        notify(`${activeTitle}: Sent ${action}`);
       }
-      return new Blob([uintArray], { type: mimeString });
     }
 
     // Snapshot
     async function captureTargetSnapshot() {
       const feed = document.getElementById(`feed-${activeCam}`);
-      if (!feed.src || !feed.src.startsWith('data:image')) {
-        notify(`${activeTitle} has no active stream`, true);
-        return;
-      }
+      const targetBaseUrl = ipStorage[activeCam];
 
       notify(`Capturing ${activeTitle}...`);
+
+      if (targetBaseUrl) {
+        // Direct HD snapshot endpoint from phone
+        try {
+          const snapshotUrl = `${targetBaseUrl}/photo.jpg`;
+          const res = await fetch(snapshotUrl);
+          const blob = await res.blob();
+          await uploadToDrive(blob, `${activeCam}_Snapshot_${Date.now()}.jpg`);
+        } catch (e) {
+          canvasSnapshotFallback(feed);
+        }
+      } else {
+        canvasSnapshotFallback(feed);
+      }
+    }
+
+    function canvasSnapshotFallback(feed) {
       try {
-        const blob = base64ToBlob(feed.src);
-        await uploadToDrive(blob, `${activeCam}_Snapshot_${Date.now()}.jpg`);
+        const canvas = document.createElement('canvas');
+        canvas.width = feed.naturalWidth || 640;
+        canvas.height = feed.naturalHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(feed, 0, 0);
+        canvas.toBlob(async (blob) => {
+          if (blob) await uploadToDrive(blob, `${activeCam}_Snapshot_${Date.now()}.jpg`);
+        }, 'image/jpeg', 0.85);
       } catch (e) {
         notify('Snapshot error: ' + e.message, true);
       }
     }
 
-    // Recording
+    // Recording Loop
     function toggleTargetRecord() {
       const feed = document.getElementById(`feed-${activeCam}`);
       const recTag = document.getElementById(`rec-${activeCam}`);
 
       if (!isRecording) {
-        if (!feed.src || !feed.src.startsWith('data:image')) {
-          notify(`${activeTitle} stream offline`, true);
-          return;
-        }
-
         recordedChunks = [];
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const stream = canvas.captureStream(30);
+        const stream = canvas.captureStream(25);
 
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
 
@@ -460,8 +545,8 @@
           if (!isRecording) { clearInterval(drawLoop); return; }
           canvas.width = feed.naturalWidth || 480;
           canvas.height = feed.naturalHeight || 360;
-          ctx.drawImage(feed, 0, 0);
-        }, 33);
+          try { ctx.drawImage(feed, 0, 0); } catch(e) {}
+        }, 40);
 
         mediaRecorder.ondataavailable = (e) => {
           if (e.data.size > 0) recordedChunks.push(e.data);
@@ -486,7 +571,7 @@
       }
     }
 
-    // Upload to Google Drive
+    // Google Drive Upload
     async function uploadToDrive(blob, filename) {
       const formData = new FormData();
       formData.append('mediaFile', blob, filename);
@@ -506,34 +591,6 @@
       } catch (err) {
         notify('Network error: ' + err.message, true);
       }
-    }
-
-    // Push to Talk
-    let micStream, micRecorder;
-
-    async function startVoice() {
-      try {
-        intercomBtn.classList.add('transmitting');
-        micLabel.innerText = `Speaking to ${activeTitle}...`;
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        micRecorder = new MediaRecorder(micStream);
-        micRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            socket.emit('intercom-audio-packet', { targetCam: activeCam, audio: e.data });
-          }
-        };
-        micRecorder.start(200);
-      } catch (err) {
-        notify('Microphone permission required', true);
-        stopVoice();
-      }
-    }
-
-    function stopVoice() {
-      intercomBtn.classList.remove('transmitting');
-      micLabel.innerText = 'Intercom';
-      if (micRecorder && micRecorder.state !== 'inactive') micRecorder.stop();
-      if (micStream) micStream.getTracks().forEach(t => t.stop());
     }
   </script>
 </body>
